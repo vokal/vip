@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/golang/groupcache"
-	"github.com/vokalinteractive/vip/fetch"
 	"launchpad.net/goamz/ec2"
 	"log"
 	"net"
@@ -23,6 +22,7 @@ type Args interface{}
 type CachePool interface {
 	Listen() error
 	Port() string
+	SetContext(func(r *http.Request) groupcache.Context)
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
@@ -81,10 +81,6 @@ func DebugPool() *DebugCachePool {
 		groupcache.NewHTTPPool("http://localhost:9001"),
 	}
 
-	peers.Context = func(r *http.Request) groupcache.Context {
-		return fetch.RequestContext(r, nil)
-	}
-
 	peers.Set("http://localhost:9001")
 
 	return peers
@@ -98,15 +94,16 @@ func (p *DebugCachePool) Port() string {
 	return "9001"
 }
 
+func (p *DebugCachePool) SetContext(f func(r *http.Request) groupcache.Context) {
+	p.Context = f
+}
+
 func Pool(ec2conn *ec2.EC2) *EC2CachePool {
 	localip := getLocalIP(ec2conn)
 
 	peers := &EC2CachePool{
 		groupcache.NewHTTPPool(fmt.Sprintf("http://%s:%s", localip, *cacheport)),
 		ec2conn,
-	}
-	peers.Context = func(r *http.Request) groupcache.Context {
-		return fetch.RequestContext(r, nil)
 	}
 
 	peerAddrs, err := peers.discoverPeers()
@@ -187,4 +184,8 @@ func (p *EC2CachePool) Listen() error {
 
 func (p *EC2CachePool) Port() string {
 	return *cacheport
+}
+
+func (p *EC2CachePool) SetContext(f func(r *http.Request) groupcache.Context) {
+	p.Context = f
 }

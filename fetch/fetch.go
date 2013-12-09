@@ -74,22 +74,12 @@ func RequestContext(r *http.Request, c *goat.Context) *CacheContext {
 		cachekey = fmt.Sprintf("%s/%s/s/%d", bucket, imageId, width)
 	}
 
-	ctx := c
-	if ctx == nil {
-		/*
-			ctx = &goat.Context{
-				Database: g.CloneDB(),
-			}
-		*/
-		log.Fatalf("No context")
-	}
-
 	return &CacheContext{
 		CacheKey: cachekey,
 		ImageId:  imageId,
 		Bucket:   bucket,
 		Width:    width,
-		Goat:     ctx,
+		Goat:     c,
 	}
 }
 
@@ -199,19 +189,19 @@ func ImageData(s3conn *s3.S3, gc groupcache.Context) ([]byte, error) {
 		return data, err
 	}
 
-	var mime string
+	var data []byte
 	var result ServingKey
+	var err error
 
-	data, mime, err := findResizedImage(&result, s3conn, c)
+	data, c.Mime, err = findResizedImage(&result, s3conn, c)
 	if err != nil {
 		data, c.Mime, err = findOriginalImage(&result, s3conn, c)
 		if err != nil {
 			return nil, err
 		}
-		c.Mime = mime
 
 		// Gifs don't get resized
-		if mime == "image/gif" {
+		if c.Mime == "image/gif" {
 			return data, err
 		}
 
@@ -228,6 +218,5 @@ func ImageData(s3conn *s3.S3, gc groupcache.Context) ([]byte, error) {
 		return buf, err
 	}
 
-	c.Mime = mime
 	return data, err
 }
