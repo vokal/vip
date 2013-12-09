@@ -71,7 +71,7 @@ func RequestContext(r *http.Request, c *goat.Context) *CacheContext {
 	if width == 0 {
 		cachekey = fmt.Sprintf("%s/%s", bucket, imageId)
 	} else {
-		cachekey = fmt.Sprintf("%s/%s?s=%d", bucket, imageId, width)
+		cachekey = fmt.Sprintf("%s/%s/s/%d", bucket, imageId, width)
 	}
 
 	ctx := c
@@ -93,15 +93,16 @@ func RequestContext(r *http.Request, c *goat.Context) *CacheContext {
 	}
 }
 
-func findOriginalImage(id string, result *ServingKey, s3conn *s3.S3, c *goat.Context) ([]byte, string, error) {
-	err := c.Database.C("image_serving_keys").Find(bson.M{
-		"key": id,
+func findOriginalImage(result *ServingKey, s3conn *s3.S3, c *CacheContext) ([]byte, string, error) {
+	err := c.Goat.Database.C("image_serving_keys").Find(bson.M{
+		"key": c.ImageId,
 	}).One(result)
 
 	if err == nil {
 		bucket := s3conn.Bucket(result.Bucket)
 		data, err := bucket.Get(result.Key)
 		if err != nil {
+			log.Printf("s3 download: %s", err.Error())
 			return nil, "", err
 		}
 
@@ -111,15 +112,17 @@ func findOriginalImage(id string, result *ServingKey, s3conn *s3.S3, c *goat.Con
 	return nil, "", err
 }
 
-func findResizedImage(id string, size int, result *ServingKey, s3conn *s3.S3, c *goat.Context) ([]byte, string, error) {
-	err := c.Database.C("image_serving_keys").Find(bson.M{
-		"key": fmt.Sprintf("%s?s=%d", id, size),
+func findResizedImage(result *ServingKey, s3conn *s3.S3, c *CacheContext) ([]byte, string, error) {
+	err := c.Goat.Database.C("image_serving_keys").Find(bson.M{
+		"key": fmt.Sprintf("%s/%s/s/%d", c.Bucket, c.ImageId, c.Width),
 	}).One(result)
 
 	if err == nil {
 		bucket := s3conn.Bucket(result.Bucket)
-		data, err := bucket.Get(result.Key)
+        // Strip the bucket out of the cache key
+		data, err := bucket.Get(strings.Split(result.Key, c.Bucket+"/")[1])
 		if err != nil {
+			log.Printf("s3 download: %s", err.Error())
 			return nil, "", err
 		}
 
@@ -129,8 +132,25 @@ func findResizedImage(id string, size int, result *ServingKey, s3conn *s3.S3, c 
 	return nil, "", err
 }
 
-func writeResizedImage(result ServingKey, c *goat.Context) error {
-	return c.Database.C("image_serving_keys").Insert(result)
+func writeResizedImage(buf []byte, s3conn *s3.S3, c *CacheContext) error {
+	path := fmt.Sprintf("%s/s/%d", c.ImageId, c.Width)
+
+	key := ServingKey{
+		Id:     bson.NewObjectId(),
+		Key:    c.CacheKey,
+		Bucket: c.Bucket,
+		Mime:   c.Mime,
+		Url: fmt.Sprintf("https://s3.amazonaws.com/%s/%s",
+			c.Bucket, path),
+	}
+
+	b := s3conn.Bucket(c.Bucket)
+	err := b.Put(path, buf, http.DetectContentType(buf), s3.BucketOwnerRead)
+	if err != nil {
+		return err
+	}
+
+	return c.Goat.Database.C("image_serving_keys").Insert(key)
 }
 
 func Resize(src io.Reader, c *CacheContext) ([]byte, error) {
@@ -165,30 +185,31 @@ func ImageData(s3conn *s3.S3, gc groupcache.Context) ([]byte, error) {
 		return nil, errors.New("invalid context")
 	}
 
+	// If the image was requested without any size modifier
 	if c.Width == 0 {
 		var result ServingKey
-		data, mime, err := findOriginalImage(c.ImageId, &result, s3conn, c.Goat)
+		data, mime, err := findOriginalImage(&result, s3conn, c)
 		if err != nil {
 			return nil, err
 		}
-
 		c.Mime = mime
+
 		return data, err
 	}
 
 	var mime string
 	var result ServingKey
-	data, mime, err := findResizedImage(c.ImageId, c.Width, &result, s3conn, c.Goat)
 
+	data, mime, err := findResizedImage(&result, s3conn, c)
 	if err != nil {
-		data, mime, err = findOriginalImage(c.ImageId, &result, s3conn, c.Goat)
+		data, c.Mime, err = findOriginalImage(&result, s3conn, c)
 		if err != nil {
 			return nil, err
 		}
+		c.Mime = mime
 
 		// Gifs don't get resized
 		if mime == "image/gif" {
-			c.Mime = mime
 			return data, err
 		}
 
@@ -197,17 +218,11 @@ func ImageData(s3conn *s3.S3, gc groupcache.Context) ([]byte, error) {
 			return nil, err
 		}
 
-		path := fmt.Sprintf("%s/s/%d", c.ImageId, c.Width)
-		writeResizedImage(ServingKey{
-			Id:     bson.NewObjectId(),
-			Key:    c.CacheKey,
-			Bucket: c.Bucket,
-			Mime:   mime,
-			Url: fmt.Sprintf("https://s3.amazonaws.com/%s/%s",
-				c.Bucket, path),
-		}, c.Goat)
+		err = writeResizedImage(buf, s3conn, c)
+		if err != nil {
+			return nil, err
+		}
 
-		c.Mime = mime
 		return buf, err
 	}
 
