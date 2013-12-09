@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/golang/groupcache"
 	"github.com/scottferg/goat"
-	"github.com/vokalinteractive/Image-Proxy/fetch"
-	"github.com/vokalinteractive/Image-Proxy/peer"
+	"github.com/vokalinteractive/vip/fetch"
+	"github.com/vokalinteractive/vip/peer"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
@@ -23,7 +23,7 @@ var (
 	peers  peer.CachePool
 	s3conn *s3.S3
 
-	httpport  *string = flag.String("httpport", "8080", "target port")
+	httpport *string = flag.String("httpport", "8080", "target port")
 )
 
 func handleImageRequest(w http.ResponseWriter, r *http.Request, c *goat.Context) error {
@@ -42,10 +42,7 @@ func handleImageRequest(w http.ResponseWriter, r *http.Request, c *goat.Context)
 	w.Header().Set("Content-Type", gc.Mime)
 	http.ServeContent(w, r, gc.ImageId, time.Now(), bytes.NewReader(data))
 
-	elapsed := time.Now().Sub(start)
-	if elapsed > (4 * time.Second) {
-		log.Printf("Request elapsed time (%s): %s", gc.CacheKey, time.Now().Sub(start))
-	}
+	log.Printf("Request elapsed time (%s): %s", gc.CacheKey, time.Now().Sub(start))
 
 	return err
 }

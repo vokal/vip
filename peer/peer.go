@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/golang/groupcache"
-	"github.com/vokalinteractive/Image-Proxy/fetch"
+	"github.com/vokalinteractive/vip/fetch"
 	"launchpad.net/goamz/ec2"
 	"log"
 	"net"

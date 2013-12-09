@@ -176,7 +176,6 @@ func ImageData(s3conn *s3.S3, gc groupcache.Context) ([]byte, error) {
 
 		factor := float64(c.Width) / float64(image.Bounds().Size().X)
 		height := int(float64(image.Bounds().Size().Y) * factor)
-		image = Resize(image, image.Bounds(), c.Width, height)
 
 		dst = imaging.Resize(dst, c.Width, height, imaging.Linear)
 
