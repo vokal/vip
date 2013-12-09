@@ -119,7 +119,7 @@ func findResizedImage(result *ServingKey, s3conn *s3.S3, c *CacheContext) ([]byt
 
 	if err == nil {
 		bucket := s3conn.Bucket(result.Bucket)
-        // Strip the bucket out of the cache key
+		// Strip the bucket out of the cache key
 		data, err := bucket.Get(strings.Split(result.Key, c.Bucket+"/")[1])
 		if err != nil {
 			log.Printf("s3 download: %s", err.Error())
@@ -144,11 +144,13 @@ func writeResizedImage(buf []byte, s3conn *s3.S3, c *CacheContext) error {
 			c.Bucket, path),
 	}
 
-	b := s3conn.Bucket(c.Bucket)
-	err := b.Put(path, buf, http.DetectContentType(buf), s3.BucketOwnerRead)
-	if err != nil {
-		return err
-	}
+	go func() {
+		b := s3conn.Bucket(c.Bucket)
+		err := b.Put(path, buf, http.DetectContentType(buf), s3.BucketOwnerRead)
+		if err != nil {
+			log.Printf("s3 upload: %s", err.Error())
+		}
+	}()
 
 	return c.Goat.Database.C("image_serving_keys").Insert(key)
 }
