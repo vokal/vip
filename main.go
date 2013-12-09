@@ -58,13 +58,6 @@ func init() {
 	flag.Parse()
 	g = goat.NewGoat()
 
-	awsAuth, err := aws.EnvAuth()
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	s3conn = s3.New(awsAuth, aws.USEast)
-
 	database := os.Getenv("DATABASE_URL")
 	if database == "" {
 		database = "localhost"
@@ -74,15 +67,22 @@ func init() {
 	g.RegisterRoute("/{bucket_id}/{image_id}", "image_request",
 		goat.GET, handleImageRequest)
 	g.RegisterRoute("/ping", "ping", goat.GET, handlePing)
+}
+
+func main() {
+	awsAuth, err := aws.EnvAuth()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	s3conn = s3.New(awsAuth, aws.USEast)
 
 	if os.Getenv("DEBUG") == "True" {
 		peers = peer.DebugPool()
 	} else {
 		peers = peer.Pool(ec2.New(awsAuth, aws.USEast))
 	}
-}
 
-func main() {
 	cache = groupcache.NewGroup("ImageProxyCache", 64<<20, groupcache.GetterFunc(
 		func(c groupcache.Context, key string, dest groupcache.Sink) error {
 			log.Printf("Cache MISS for key -> %s", key)

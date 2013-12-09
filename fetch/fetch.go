@@ -11,6 +11,7 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/goamz/s3"
 	"log"
@@ -75,12 +76,12 @@ func RequestContext(r *http.Request, c *goat.Context) *CacheContext {
 
 	ctx := c
 	if ctx == nil {
-        /*
-		ctx = &goat.Context{
-			Database: g.CloneDB(),
-		}
-        */
-        log.Fatalf("No context")
+		/*
+			ctx = &goat.Context{
+				Database: g.CloneDB(),
+			}
+		*/
+		log.Fatalf("No context")
 	}
 
 	return &CacheContext{
@@ -132,6 +133,32 @@ func writeResizedImage(result ServingKey, c *goat.Context) error {
 	return c.Database.C("image_serving_keys").Insert(result)
 }
 
+func Resize(src io.Reader, c *CacheContext) ([]byte, error) {
+	image, format, err := image.Decode(src)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+
+	dst := imaging.Clone(image)
+
+	factor := float64(c.Width) / float64(image.Bounds().Size().X)
+	height := int(float64(image.Bounds().Size().Y) * factor)
+
+	dst = imaging.Resize(dst, c.Width, height, imaging.Linear)
+
+	switch format {
+	case "jpeg":
+		jpeg.Encode(buf, dst, nil)
+	case "png":
+		err = png.Encode(buf, dst)
+	}
+
+	return buf.Bytes(), err
+}
+
 func ImageData(s3conn *s3.S3, gc groupcache.Context) ([]byte, error) {
 	c, ok := gc.(*CacheContext)
 	if !ok {
@@ -165,29 +192,9 @@ func ImageData(s3conn *s3.S3, gc groupcache.Context) ([]byte, error) {
 			return data, err
 		}
 
-		image, format, err := image.Decode(bytes.NewBuffer(data))
+		buf, err := Resize(bytes.NewBuffer(data), c)
 		if err != nil {
 			return nil, err
-		}
-
-		buf := new(bytes.Buffer)
-
-		dst := imaging.Clone(image)
-
-		factor := float64(c.Width) / float64(image.Bounds().Size().X)
-		height := int(float64(image.Bounds().Size().Y) * factor)
-
-		dst = imaging.Resize(dst, c.Width, height, imaging.Linear)
-
-		switch format {
-		case "jpeg":
-			if err = jpeg.Encode(buf, dst, nil); err != nil {
-				return nil, err
-			}
-		case "png":
-			if err = png.Encode(buf, dst); err != nil {
-				return nil, err
-			}
 		}
 
 		path := fmt.Sprintf("%s/s/%d", c.ImageId, c.Width)
@@ -201,7 +208,7 @@ func ImageData(s3conn *s3.S3, gc groupcache.Context) ([]byte, error) {
 		}, c.Goat)
 
 		c.Mime = mime
-		return buf.Bytes(), err
+		return buf, err
 	}
 
 	c.Mime = mime
