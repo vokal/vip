@@ -40,28 +40,9 @@ type ServingKey struct {
 func RequestContext(r *http.Request, c *goat.Context) *CacheContext {
 	vars := mux.Vars(r)
 
-	var bucket string
-	var imageId string
-	var width int
-
-	if len(vars) == 0 {
-		path := strings.Split(r.URL.Path, "/")
-		bucket = path[3]
-		imageId = path[4]
-
-		if strings.Index(imageId, "?") > -1 {
-			imageId = strings.Split(imageId, "?")[0]
-		}
-
-		querystring := strings.Split(r.URL.String(), "=")
-		if len(querystring) > 1 {
-			width, _ = strconv.Atoi(querystring[1])
-		}
-	} else {
-		width, _ = strconv.Atoi(r.FormValue("s"))
-		imageId = vars["image_id"]
-		bucket = vars["bucket_id"]
-	}
+	width, _ := strconv.Atoi(r.FormValue("s"))
+	imageId := vars["image_id"]
+	bucket := vars["bucket_id"]
 
 	if width > 720 {
 		width = 720
@@ -74,22 +55,12 @@ func RequestContext(r *http.Request, c *goat.Context) *CacheContext {
 		cachekey = fmt.Sprintf("%s/%s/s/%d", bucket, imageId, width)
 	}
 
-	ctx := c
-	if ctx == nil {
-		/*
-			ctx = &goat.Context{
-				Database: g.CloneDB(),
-			}
-		*/
-		log.Fatalf("No context")
-	}
-
 	return &CacheContext{
 		CacheKey: cachekey,
 		ImageId:  imageId,
 		Bucket:   bucket,
 		Width:    width,
-		Goat:     ctx,
+		Goat:     c,
 	}
 }
 
@@ -187,31 +158,30 @@ func ImageData(s3conn *s3.S3, gc groupcache.Context) ([]byte, error) {
 		return nil, errors.New("invalid context")
 	}
 
+	var data []byte
+	var result ServingKey
+	var err error
+
 	// If the image was requested without any size modifier
 	if c.Width == 0 {
 		var result ServingKey
-		data, mime, err := findOriginalImage(&result, s3conn, c)
+		data, c.Mime, err = findOriginalImage(&result, s3conn, c)
 		if err != nil {
 			return nil, err
 		}
-		c.Mime = mime
 
 		return data, err
 	}
 
-	var mime string
-	var result ServingKey
-
-	data, mime, err := findResizedImage(&result, s3conn, c)
+	data, c.Mime, err = findResizedImage(&result, s3conn, c)
 	if err != nil {
 		data, c.Mime, err = findOriginalImage(&result, s3conn, c)
 		if err != nil {
 			return nil, err
 		}
-		c.Mime = mime
 
 		// Gifs don't get resized
-		if mime == "image/gif" {
+		if c.Mime == "image/gif" {
 			return data, err
 		}
 
@@ -225,9 +195,10 @@ func ImageData(s3conn *s3.S3, gc groupcache.Context) ([]byte, error) {
 			return nil, err
 		}
 
+		log.Println("Retrieved original and stored resized image in S3")
 		return buf, err
 	}
 
-	c.Mime = mime
+	log.Println("Retrieved resized image from S3")
 	return data, err
 }

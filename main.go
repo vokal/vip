@@ -83,6 +83,12 @@ func main() {
 		peers = peer.Pool(ec2.New(awsAuth, aws.USEast))
 	}
 
+	peers.SetContext(func(r *http.Request) groupcache.Context {
+		return fetch.RequestContext(r, &goat.Context{
+			Database: g.CloneDB(),
+		})
+	})
+
 	cache = groupcache.NewGroup("ImageProxyCache", 64<<20, groupcache.GetterFunc(
 		func(c groupcache.Context, key string, dest groupcache.Sink) error {
 			log.Printf("Cache MISS for key -> %s", key)
