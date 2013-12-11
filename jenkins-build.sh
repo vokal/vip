@@ -6,7 +6,7 @@ set -x
 private_deps=( )
 support_deps=( "launchpad.net/gocheck" "github.com/scottferg/go2xunit" )
 
-BINARYNAME=Image-Proxy
+BINARYNAME=vip
 
 ROOTDIR=$(pwd)
 
@@ -51,8 +51,26 @@ do
     go install $dep
 done
 
+TESTFILE=$ROOTDIR/tests.xml
+
+COVERAGEOUT=$ROOTDIR/coverage.out
+COVERAGEHTML=$ROOTDIR/coverage.html
+COVERAGEJSON=$ROOTDIR/coverage.json
+COVERAGEXML=$ROOTDIR/coverage.xml
+
 cd $LOCAL_GOPATH/src/$IMPORTPATH
 
 go get
+
+go test -i
+go test -gocheck.v -coverprofile=$COVERAGEOUT | $LOCAL_GOPATH/bin/go2xunit -fail -output $TESTFILE
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+go tool cover -html=$COVERAGEOUT -o $COVERAGEHTML
+if [ $? -ne 0 ]; then
+    exit 2
+fi
 
 mv $LOCAL_GOPATH/bin/$BINARYNAME $ROOTDIR/$BINARYNAME
