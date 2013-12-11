@@ -1,4 +1,4 @@
-FROM ubuntu:13.04
+FROM madsurgeon/raring
 MAINTAINER Scott Ferguson <scott.ferguson@vokalinteractive.com>
 
 ADD ./vip ./vip
