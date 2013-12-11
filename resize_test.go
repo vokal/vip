@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
-	"sync"
 )
 
 var sizes = []int{
