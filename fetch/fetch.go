@@ -36,6 +36,14 @@ type ServingKey struct {
 	Url    string        `bson:"url"`
 }
 
+func GetCacheKey(bucket, id string, width int) string {
+	if width == 0 {
+		return fmt.Sprintf("%s/%s", bucket, id)
+	}
+
+	return fmt.Sprintf("%s/%s/s/%d", bucket, id, width)
+}
+
 func RequestContext(r *http.Request, c *goat.Context) *CacheContext {
 	vars := mux.Vars(r)
 
@@ -47,15 +55,8 @@ func RequestContext(r *http.Request, c *goat.Context) *CacheContext {
 		width = 720
 	}
 
-	var cachekey string
-	if width == 0 {
-		cachekey = fmt.Sprintf("%s/%s", bucket, imageId)
-	} else {
-		cachekey = fmt.Sprintf("%s/%s/s/%d", bucket, imageId, width)
-	}
-
 	return &CacheContext{
-		CacheKey: cachekey,
+		CacheKey: GetCacheKey(bucket, imageId, width),
 		ImageId:  imageId,
 		Bucket:   bucket,
 		Width:    width,
@@ -63,10 +64,11 @@ func RequestContext(r *http.Request, c *goat.Context) *CacheContext {
 	}
 }
 
-func findOriginalImage(result *ServingKey, storage ImageStore, c *CacheContext) ([]byte, string, error) {
+func FindOriginalImage(storage ImageStore, c *CacheContext) ([]byte, string, error) {
+	var result ServingKey
 	err := c.Goat.Database.C("image_serving_keys").Find(bson.M{
 		"key": c.ImageId,
-	}).One(result)
+	}).One(&result)
 
 	if err == nil {
 		data, err := storage.Get(result.Bucket, result.Key)
@@ -81,10 +83,11 @@ func findOriginalImage(result *ServingKey, storage ImageStore, c *CacheContext) 
 	return nil, "", err
 }
 
-func findResizedImage(result *ServingKey, storage ImageStore, c *CacheContext) ([]byte, string, error) {
+func FindResizedImage(storage ImageStore, c *CacheContext) ([]byte, string, error) {
+	var result ServingKey
 	err := c.Goat.Database.C("image_serving_keys").Find(bson.M{
-		"key": fmt.Sprintf("%s/%s/s/%d", c.Bucket, c.ImageId, c.Width),
-	}).One(result)
+		"key": GetCacheKey(c.Bucket, c.ImageId, c.Width),
+	}).One(&result)
 
 	if err == nil {
 		// Strip the bucket out of the cache key
@@ -101,7 +104,7 @@ func findResizedImage(result *ServingKey, storage ImageStore, c *CacheContext) (
 	return nil, "", err
 }
 
-func writeResizedImage(buf []byte, storage ImageStore, c *CacheContext) error {
+func WriteResizedImage(buf []byte, storage ImageStore, c *CacheContext) error {
 	path := fmt.Sprintf("%s/s/%d", c.ImageId, c.Width)
 
 	key := ServingKey{
@@ -156,13 +159,11 @@ func ImageData(storage ImageStore, gc groupcache.Context) ([]byte, error) {
 	}
 
 	var data []byte
-	var result ServingKey
 	var err error
 
 	// If the image was requested without any size modifier
 	if c.Width == 0 {
-		var result ServingKey
-		data, c.Mime, err = findOriginalImage(&result, storage, c)
+		data, c.Mime, err = FindOriginalImage(storage, c)
 		if err != nil {
 			return nil, err
 		}
@@ -170,9 +171,9 @@ func ImageData(storage ImageStore, gc groupcache.Context) ([]byte, error) {
 		return data, err
 	}
 
-	data, c.Mime, err = findResizedImage(&result, storage, c)
+	data, c.Mime, err = FindResizedImage(storage, c)
 	if err != nil {
-		data, c.Mime, err = findOriginalImage(&result, storage, c)
+		data, c.Mime, err = FindOriginalImage(storage, c)
 		if err != nil {
 			return nil, err
 		}
@@ -187,7 +188,7 @@ func ImageData(storage ImageStore, gc groupcache.Context) ([]byte, error) {
 			return nil, err
 		}
 
-		err = writeResizedImage(buf, storage, c)
+		err = WriteResizedImage(buf, storage, c)
 		if err != nil {
 			return nil, err
 		}
