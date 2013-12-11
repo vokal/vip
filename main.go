@@ -18,10 +18,10 @@ import (
 )
 
 var (
-	g      *goat.Goat
-	cache  *groupcache.Group
-	peers  peer.CachePool
-	s3conn *s3.S3
+	g       *goat.Goat
+	cache   *groupcache.Group
+	peers   peer.CachePool
+	storage fetch.ImageStore
 
 	httpport *string = flag.String("httpport", "8080", "target port")
 )
@@ -75,7 +75,8 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	s3conn = s3.New(awsAuth, aws.USEast)
+	s3conn := s3.New(awsAuth, aws.USEast)
+	storage = fetch.NewS3Store(s3conn)
 
 	if os.Getenv("DEBUG") == "True" {
 		peers = peer.DebugPool()
@@ -93,7 +94,7 @@ func main() {
 		func(c groupcache.Context, key string, dest groupcache.Sink) error {
 			log.Printf("Cache MISS for key -> %s", key)
 			// Get image data from S3
-			data, err := fetch.ImageData(s3conn, c)
+			data, err := fetch.ImageData(storage, c)
 			if err != nil {
 				return err
 			}

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"log"
 	"testing"
 )
 
@@ -10,10 +12,18 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-func setUpSuite(c *C) {}
+func setUpSuite(c *C) {
+	// Silence the logger
+	log.SetOutput(ioutil.Discard)
 
-func setUpTest(c *C) {}
+	// We'll want to use a test database, not the development database
+	g.RegisterMiddleware(g.NewDatabaseMiddleware("localhost", "vip-test"))
+}
 
-func tearDownTest(c *C) {}
+func setUpTest(c *C) {
+	g.CloneDB().DropDatabase()
+}
 
-func tearDownSuite(c *C) {}
+func tearDownSuite(c *C) {
+	g.Close()
+}
