@@ -60,6 +60,8 @@ func (s *ResizeSuite) SetUpSuite(c *C) {
 
 func (s *ResizeSuite) SetUpTest(c *C) {
 	setUpTest(c)
+
+	storage = NewDebugStore()
 }
 
 func (s *ResizeSuite) TearDownSuite(c *C) {
@@ -117,7 +119,7 @@ func (s *ResizeSuite) TestResizeImage(c *C) {
 	}
 }
 
-func (s *ResizeSuite) insertMockImage(storage fetch.ImageStore) (*fetch.CacheContext, error) {
+func (s *ResizeSuite) insertMockImage() (*fetch.CacheContext, error) {
 	file, err := ioutil.ReadFile("test/AWESOME.jpg")
 	if err != nil {
 		return nil, err
@@ -143,8 +145,6 @@ func (s *ResizeSuite) insertMockImage(storage fetch.ImageStore) (*fetch.CacheCon
 }
 
 func (s *ResizeSuite) TestOriginalColdCache(c *C) {
-	storage := NewDebugStore()
-
 	// Open the file once to get it's size
 	file, err := ioutil.ReadFile("test/AWESOME.jpg")
 	c.Assert(err, IsNil)
@@ -155,7 +155,7 @@ func (s *ResizeSuite) TestOriginalColdCache(c *C) {
 	originalSize := img.Bounds().Size().X
 
 	// A single, unresized image is in the database/store
-	ctx, err := s.insertMockImage(storage)
+	ctx, err := s.insertMockImage()
 	c.Assert(err, IsNil)
 
 	// Bootstrap the db connection
@@ -177,10 +177,8 @@ func (s *ResizeSuite) TestOriginalColdCache(c *C) {
 }
 
 func (s *ResizeSuite) TestResizeColdCache(c *C) {
-	storage := NewDebugStore()
-
 	// A single, unresized image is in the database/store
-	mockCtx, err := s.insertMockImage(storage)
+	mockCtx, err := s.insertMockImage()
 	c.Assert(err, IsNil)
 
 	for _, size := range sizes {
