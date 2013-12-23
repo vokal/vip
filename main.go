@@ -40,6 +40,7 @@ func handleImageRequest(w http.ResponseWriter, r *http.Request, c *goat.Context)
 	}
 
 	w.Header().Set("Content-Type", gc.Mime)
+	w.Header().Set("Cache-Control", "max-age=31536000")
 	http.ServeContent(w, r, gc.ImageId, time.Now(), bytes.NewReader(data))
 
 	log.Printf("Request elapsed time (%s): %s", gc.CacheKey, time.Now().Sub(start))
@@ -107,8 +108,18 @@ func main() {
 
 	go func() {
 		log.Printf("Listening on port :%s\n", *httpport)
-		if err := g.ListenAndServe(*httpport); err != nil {
-			log.Fatalf("Error starting server: %s\n", err.Error())
+		cert := os.Getenv("SSL_CERT")
+		key := os.Getenv("SSL_KEY")
+
+		if cert != "" && key != "" {
+			log.Println("Serving via SSL")
+			if err := g.ListenAndServeTLS(cert, key, fmt.Sprintf(":%s", *httpport)); err != nil {
+				log.Fatalf("Error starting server: %s\n", err.Error())
+			}
+		} else {
+			if err := g.ListenAndServe(*httpport); err != nil {
+				log.Fatalf("Error starting server: %s\n", err.Error())
+			}
 		}
 	}()
 
