@@ -56,7 +56,7 @@ func handlePing(w http.ResponseWriter, r *http.Request, c *goat.Context) error {
 
 func init() {
 	flag.Parse()
-	g = goat.NewGoat()
+	g = goat.New(nil)
 
 	database := os.Getenv("DATABASE_URL")
 	if database == "" {
