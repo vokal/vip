@@ -1,0 +1,11 @@
+image: mischief/docker-golang
+env:
+    - GOPATH=/var/cache/drone
+script:
+    - apt-get -y install bzr mercurial
+    - go get
+    - go get -t
+    - go build
+    - go test -gocheck.v
+service:
+    - mongodb
