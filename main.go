@@ -88,6 +88,7 @@ func main() {
 	}
 
 	peers.SetContext(func(r *http.Request) groupcache.Context {
+		log.Println("Opening new connection")
 		return fetch.RequestContext(r, &goat.Context{
 			Database: g.CloneDB(),
 		})
@@ -95,6 +96,13 @@ func main() {
 
 	cache = groupcache.NewGroup("ImageProxyCache", 64<<20, groupcache.GetterFunc(
 		func(c groupcache.Context, key string, dest groupcache.Sink) error {
+			if ctx, ok := c.(*fetch.CacheContext); ok {
+				defer func() {
+					log.Println("Closing connection")
+					ctx.Goat.Close()
+				}()
+			}
+
 			log.Printf("Cache MISS for key -> %s", key)
 			// Get image data from S3
 			data, err := fetch.ImageData(storage, c)
