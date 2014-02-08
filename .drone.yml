@@ -1,6 +1,8 @@
-image: scottwferg/golang
+image: docker.vokalinteractive.com/golang
 env:
+    - HOME=/root
     - GOPATH=/var/cache/drone
+    - PATH=/root/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
 script:
     - apt-get -y install bzr mercurial
     - go get
