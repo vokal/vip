@@ -9,5 +9,5 @@ script:
     - go get -t
     - go build
     - go test -gocheck.v
-service:
+services:
     - mongodb
