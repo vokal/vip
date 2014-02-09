@@ -18,7 +18,7 @@ For example, if you want to resize an image down to a 160 pixel thumbnail:
         www.example.com/mybucket/5272a0e7d0d9813e21000009-1386617305123315142?s=160
 
 The thumbnail will then be cached to both `groupcache` and S3. If the image leaves
-the in-memory cache it will not need to be resized again.
+the in-memory cache it will not need to be resized again. 
 
 ### Deploying
 
