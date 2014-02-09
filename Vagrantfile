@@ -25,7 +25,6 @@ rm *.tar.gz
 mv go /go
 chown -R vagrant:vagrant /gopath
 chown -R vagrant:vagrant /go
-
 echo '#{update_profile}' >> /home/vagrant/.profile
 SCRIPT
 
