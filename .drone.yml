@@ -9,5 +9,3 @@ script:
     - go test -gocheck.v
 services:
     - mongodb
-notify:
-  github_status: true
