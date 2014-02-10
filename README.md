@@ -24,4 +24,4 @@ the in-memory cache it will not need to be resized again.
 
 `vip` can be deployed with Docker:
 
-        sudo docker run -e DATABASE_URL=... -e AWS_SECRET_ACCESS_KEY=... -e AWS_ACCESS_KEY_ID=... vokalinteractive/vip
+        sudo docker run -e DATABASE_URL=... -e AWS_SECRET_ACCESS_KEY=... -e AWS_ACCESS_KEY_ID=... vokalinteractive/vip  
