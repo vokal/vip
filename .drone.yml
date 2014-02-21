@@ -9,3 +9,4 @@ script:
     - go test -gocheck.v
 services:
     - mongodb
+    - postgres

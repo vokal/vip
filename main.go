@@ -5,38 +5,42 @@ import (
 	"flag"
 	"fmt"
 	"github.com/golang/groupcache"
-	"github.com/scottferg/goat"
+	"github.com/gorilla/mux"
 	"github.com/vokalinteractive/vip/fetch"
+	"github.com/vokalinteractive/vip/mongo"
 	"github.com/vokalinteractive/vip/peer"
+	"github.com/vokalinteractive/vip/pg"
+	"github.com/vokalinteractive/vip/store"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
 var (
-	g       *goat.Goat
 	cache   *groupcache.Group
 	peers   peer.CachePool
-	storage fetch.ImageStore
+	storage store.ImageStore
+	fw      fetch.FetchWriter
 
 	httpport *string = flag.String("httpport", "8080", "target port")
 )
 
-func handleImageRequest(w http.ResponseWriter, r *http.Request, c *goat.Context) error {
+func handleImageRequest(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	gc := fetch.RequestContext(r, c)
+	gc := fetch.RequestContext(r, fw)
 
 	var data []byte
 	fmt.Printf("Request for %s from groupcache\n", gc.CacheKey)
 	err := cache.Get(gc, gc.CacheKey,
 		groupcache.AllocatingByteSliceSink(&data))
 	if err != nil {
-		return err
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	w.Header().Set("Content-Type", gc.Mime)
@@ -45,41 +49,56 @@ func handleImageRequest(w http.ResponseWriter, r *http.Request, c *goat.Context)
 
 	log.Printf("Request elapsed time (%s): %s", gc.CacheKey, time.Now().Sub(start))
 
-	return err
+	return
 }
 
-func handlePing(w http.ResponseWriter, r *http.Request, c *goat.Context) error {
+func handlePing(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "pong")
 
-	return nil
+	return
 }
 
 func init() {
 	flag.Parse()
-	g = goat.New(&goat.Config{
-		Spdy: true,
-	})
 
+	r := mux.NewRouter()
+	r.HandleFunc("/{bucket_id}/{image_id}", handleImageRequest)
+	r.HandleFunc("/ping", handlePing)
+	http.Handle("/", r)
+}
+
+func dialBackend() {
 	database := os.Getenv("DATABASE_URL")
 	if database == "" {
 		database = "localhost"
 	}
 
-	g.RegisterMiddleware(g.NewDatabaseMiddleware(database, ""))
-	g.RegisterRoute("/{bucket_id}/{image_id}", "image_request",
-		goat.GET, handleImageRequest)
-	g.RegisterRoute("/ping", "ping", goat.GET, handlePing)
+	var err error
+
+	if strings.Contains(database, "mongo") {
+		fw, err = mongo.Dial(database)
+	} else if strings.Contains(database, "postgres") {
+		fw, err = pg.Dial(database)
+	} else {
+		panic("Invalid database connection string")
+	}
+
+	if err != nil {
+		panic(err.Error())
+	}
 }
 
 func main() {
+	dialBackend()
+
 	awsAuth, err := aws.EnvAuth()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 
 	s3conn := s3.New(awsAuth, aws.USEast)
-	storage = fetch.NewS3Store(s3conn)
+	storage = store.NewS3Store(s3conn)
 
 	if os.Getenv("DEBUG") == "True" {
 		peers = peer.DebugPool()
@@ -88,21 +107,11 @@ func main() {
 	}
 
 	peers.SetContext(func(r *http.Request) groupcache.Context {
-		log.Println("Opening new connection")
-		return fetch.RequestContext(r, &goat.Context{
-			Database: g.CloneDB(),
-		})
+		return fetch.RequestContext(r, fw)
 	})
 
 	cache = groupcache.NewGroup("ImageProxyCache", 64<<20, groupcache.GetterFunc(
 		func(c groupcache.Context, key string, dest groupcache.Sink) error {
-			if ctx, ok := c.(*fetch.CacheContext); ok {
-				defer func() {
-					log.Println("Closing connection")
-					ctx.Goat.Close()
-				}()
-			}
-
 			log.Printf("Cache MISS for key -> %s", key)
 			// Get image data from S3
 			data, err := fetch.ImageData(storage, c)
@@ -121,22 +130,24 @@ func main() {
 		cert := os.Getenv("SSL_CERT")
 		key := os.Getenv("SSL_KEY")
 
+		port := fmt.Sprintf(":%s", *httpport)
+
 		if cert != "" && key != "" {
 			log.Println("Serving via SSL")
-			if err := g.ListenAndServeTLS(cert, key, fmt.Sprintf(":%s", *httpport)); err != nil {
+			if err := http.ListenAndServeTLS(port, cert, key, nil); err != nil {
 				log.Fatalf("Error starting server: %s\n", err.Error())
 			}
 		} else {
-			if err := g.ListenAndServe(*httpport); err != nil {
+			if err := http.ListenAndServe(port, nil); err != nil {
 				log.Fatalf("Error starting server: %s\n", err.Error())
 			}
 		}
 	}()
 
 	log.Println("Cache listening on port :" + peers.Port())
-	server := &http.Server{
+	s := &http.Server{
 		Addr:    ":" + peers.Port(),
 		Handler: peers,
 	}
-	server.ListenAndServe()
+	s.ListenAndServe()
 }
