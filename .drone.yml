@@ -3,6 +3,9 @@ env:
     - GOPATH=/var/cache/drone
 script:
     - apt-get -y install bzr mercurial
+    - mkdir -p /var/cache/drone/src/github.com/vokalinteractive/vip
+    - mv * /var/cache/drone/src/github.com/vokalinteractive/vip
+    - cd /var/cache/drone/src/github.com/vokalinteractive/vip
     - go get
     - go get -t
     - go build
