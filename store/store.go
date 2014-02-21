@@ -1,4 +1,4 @@
-package fetch
+package store
 
 import (
 	"launchpad.net/goamz/s3"
