@@ -21,9 +21,9 @@ const (
                     key varchar(30) NOT NULL, 
                     bucket varchar(30) NOT NULL, 
                     mime varchar(30) NOT NULL)`
-	checkCreate = "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=vip_serving_keys)"
+	checkCreate = "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name='vip_serving_keys')"
 	keyQuery    = "SELECT key, bucket, mime FROM vip_serving_keys WHERE key = $1"
-	keyInsert   = "INSERT INTO vip_serving_keys (key, bucket, mime) VALUES (?, ?, ?)"
+	keyInsert   = "INSERT INTO vip_serving_keys (key, bucket, mime) VALUES ($1, $2, $3)"
 )
 
 func Dial(conn string) (*Postgres, error) {
@@ -33,6 +33,10 @@ func Dial(conn string) (*Postgres, error) {
 	}
 
 	rows, err := db.Query(checkCreate)
+	if err != nil {
+		return nil, err
+	}
+
 	if !rows.Next() {
 		_, err = db.Exec(tableCreate)
 	}
