@@ -1,4 +1,4 @@
-image: docker.vokalinteractive.com/golang
+image: mischief/docker-golang
 env:
     - GOPATH=/var/cache/drone
 script:
@@ -9,5 +9,4 @@ script:
     - go test -gocheck.v
 services:
     - mongodb
-notify:
-  github_status: true
+    - postgres

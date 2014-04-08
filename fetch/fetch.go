@@ -7,17 +7,21 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
-	"github.com/scottferg/goat"
+	"github.com/vokalinteractive/vip/store"
 	"image"
 	"image/jpeg"
 	"image/png"
 	"io"
-	"labix.org/v2/mgo/bson"
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 )
+
+type FetchWriter interface {
+	FindOriginal(storage store.ImageStore, c *CacheContext) ([]byte, string, error)
+	FindResized(storage store.ImageStore, c *CacheContext) ([]byte, string, error)
+	WriteResized(buf []byte, storage store.ImageStore, c *CacheContext) error
+}
 
 type CacheContext struct {
 	CacheKey string
@@ -25,15 +29,7 @@ type CacheContext struct {
 	Bucket   string
 	Mime     string
 	Width    int
-	Goat     *goat.Context
-}
-
-type ServingKey struct {
-	Id     bson.ObjectId `bson:"_id"`
-	Key    string        `bson:"key"`
-	Bucket string        `bson:"bucket"`
-	Mime   string        `bson:"mime"`
-	Url    string        `bson:"url"`
+	Fw       FetchWriter
 }
 
 func GetCacheKey(bucket, id string, width int) string {
@@ -44,7 +40,7 @@ func GetCacheKey(bucket, id string, width int) string {
 	return fmt.Sprintf("%s/%s/s/%d", bucket, id, width)
 }
 
-func RequestContext(r *http.Request, c *goat.Context) *CacheContext {
+func RequestContext(r *http.Request, fw FetchWriter) *CacheContext {
 	vars := mux.Vars(r)
 
 	width, _ := strconv.Atoi(r.FormValue("s"))
@@ -60,70 +56,8 @@ func RequestContext(r *http.Request, c *goat.Context) *CacheContext {
 		ImageId:  imageId,
 		Bucket:   bucket,
 		Width:    width,
-		Goat:     c,
+		Fw:       fw,
 	}
-}
-
-func FindOriginalImage(storage ImageStore, c *CacheContext) ([]byte, string, error) {
-	var result ServingKey
-	err := c.Goat.Database.C("image_serving_keys").Find(bson.M{
-		"key": c.ImageId,
-	}).One(&result)
-
-	if err == nil {
-		data, err := storage.Get(result.Bucket, result.Key)
-		if err != nil {
-			log.Printf("s3 download: %s", err.Error())
-			return nil, "", err
-		}
-
-		return data, result.Mime, err
-	}
-
-	return nil, "", err
-}
-
-func FindResizedImage(storage ImageStore, c *CacheContext) ([]byte, string, error) {
-	var result ServingKey
-	err := c.Goat.Database.C("image_serving_keys").Find(bson.M{
-		"key": GetCacheKey(c.Bucket, c.ImageId, c.Width),
-	}).One(&result)
-
-	if err == nil {
-		// Strip the bucket out of the cache key
-		path := strings.Split(result.Key, c.Bucket+"/")[1]
-		data, err := storage.Get(result.Bucket, path)
-		if err != nil {
-			log.Printf("s3 download: %s", err.Error())
-			return nil, "", err
-		}
-
-		return data, result.Mime, err
-	}
-
-	return nil, "", err
-}
-
-func WriteResizedImage(buf []byte, storage ImageStore, c *CacheContext) error {
-	path := fmt.Sprintf("%s/s/%d", c.ImageId, c.Width)
-
-	key := ServingKey{
-		Id:     bson.NewObjectId(),
-		Key:    c.CacheKey,
-		Bucket: c.Bucket,
-		Mime:   c.Mime,
-		Url: fmt.Sprintf("https://s3.amazonaws.com/%s/%s",
-			c.Bucket, path),
-	}
-
-	go func() {
-		err := storage.Put(c.Bucket, path, buf, http.DetectContentType(buf))
-		if err != nil {
-			log.Printf("s3 upload: %s", err.Error())
-		}
-	}()
-
-	return c.Goat.Database.C("image_serving_keys").Insert(key)
 }
 
 func Resize(src io.Reader, c *CacheContext) ([]byte, error) {
@@ -152,7 +86,7 @@ func Resize(src io.Reader, c *CacheContext) ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func ImageData(storage ImageStore, gc groupcache.Context) ([]byte, error) {
+func ImageData(storage store.ImageStore, gc groupcache.Context) ([]byte, error) {
 	c, ok := gc.(*CacheContext)
 	if !ok {
 		return nil, errors.New("invalid context")
@@ -163,7 +97,7 @@ func ImageData(storage ImageStore, gc groupcache.Context) ([]byte, error) {
 
 	// If the image was requested without any size modifier
 	if c.Width == 0 {
-		data, c.Mime, err = FindOriginalImage(storage, c)
+		data, c.Mime, err = c.Fw.FindOriginal(storage, c)
 		if err != nil {
 			return nil, err
 		}
@@ -171,9 +105,9 @@ func ImageData(storage ImageStore, gc groupcache.Context) ([]byte, error) {
 		return data, err
 	}
 
-	data, c.Mime, err = FindResizedImage(storage, c)
+	data, c.Mime, err = c.Fw.FindResized(storage, c)
 	if err != nil {
-		data, c.Mime, err = FindOriginalImage(storage, c)
+		data, c.Mime, err = c.Fw.FindOriginal(storage, c)
 		if err != nil {
 			return nil, err
 		}
@@ -188,7 +122,7 @@ func ImageData(storage ImageStore, gc groupcache.Context) ([]byte, error) {
 			return nil, err
 		}
 
-		err = WriteResizedImage(buf, storage, c)
+		err = c.Fw.WriteResized(buf, storage, c)
 		if err != nil {
 			return nil, err
 		}

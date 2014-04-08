@@ -4,25 +4,28 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/scottferg/goat"
 	"github.com/vokalinteractive/vip/fetch"
+	"github.com/vokalinteractive/vip/mongo"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"io/ioutil"
-	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 )
 
-var sizes = []int{
-	250,
-	500,
-	160,
-	720,
-	1024,
-	683,
-	431,
-}
+var (
+	mongoDb *mongo.Mongo
+
+	sizes = []int{
+		250,
+		500,
+		160,
+		720,
+		1024,
+		683,
+		431,
+	}
+)
 
 type DebugStore struct {
 	store map[string][]byte
@@ -56,6 +59,11 @@ type ResizeSuite struct{}
 
 func (s *ResizeSuite) SetUpSuite(c *C) {
 	setUpSuite(c)
+
+	// We'll want to use a test database, not the development database
+	mongoDb, _ = mongo.Dial("mongodb://localhost/vip-test")
+
+	fw = mongoDb
 }
 
 func (s *ResizeSuite) SetUpTest(c *C) {
@@ -64,8 +72,8 @@ func (s *ResizeSuite) SetUpTest(c *C) {
 	storage = NewDebugStore()
 }
 
-func (s *ResizeSuite) TearDownSuite(c *C) {
-	tearDownSuite(c)
+func (s *ResizeSuite) TearDownTest(c *C) {
+	mongoDb.Db.DropDatabase()
 }
 
 func (s *ResizeSuite) BenchmarkThumbnailResize(c *C) {
@@ -129,13 +137,12 @@ func (s *ResizeSuite) insertMockImage() (*fetch.CacheContext, error) {
 	storage.Put("test_bucket", "test_id", file, "image/jpeg")
 
 	// Create a mock serving key in the database
-	key := fetch.ServingKey{
-		Id:     bson.NewObjectId(),
+	key := mongo.ServingKey{
 		Key:    "test_id",
 		Bucket: "test_bucket",
 		Mime:   "image/jpeg",
 	}
-	err = g.CloneDB().C("image_serving_keys").Insert(key)
+	err = mongoDb.Db.C("image_serving_keys").Insert(key)
 
 	return &fetch.CacheContext{
 		CacheKey: key.Key,
@@ -159,9 +166,7 @@ func (s *ResizeSuite) TestOriginalColdCache(c *C) {
 	c.Assert(err, IsNil)
 
 	// Bootstrap the db connection
-	ctx.Goat = &goat.Context{
-		Database: g.CloneDB(),
-	}
+	ctx.Fw = fw
 
 	// Run the image resize request
 	data, err := fetch.ImageData(storage, ctx)
@@ -171,9 +176,6 @@ func (s *ResizeSuite) TestOriginalColdCache(c *C) {
 	img, _, err = image.Decode(bytes.NewBuffer(data))
 	c.Assert(err, IsNil)
 	c.Assert(img.Bounds().Size().X, Equals, originalSize)
-
-	// Remember to cleanup
-	ctx.Goat.Close()
 }
 
 func (s *ResizeSuite) TestResizeColdCache(c *C) {
@@ -187,9 +189,7 @@ func (s *ResizeSuite) TestResizeColdCache(c *C) {
 			ImageId:  mockCtx.ImageId,
 			Bucket:   mockCtx.Bucket,
 			Width:    size,
-			Goat: &goat.Context{
-				Database: g.CloneDB(),
-			},
+			Fw:       fw,
 		}
 
 		// Run the image resize request
@@ -202,14 +202,11 @@ func (s *ResizeSuite) TestResizeColdCache(c *C) {
 		c.Assert(img.Bounds().Size().X, Equals, size)
 
 		// Verify that the resized image was stored in the data store
-		data, _, err = fetch.FindResizedImage(storage, ctx)
+		data, _, err = fw.FindResized(storage, ctx)
 		c.Assert(err, IsNil)
 
 		img, _, err = image.Decode(bytes.NewBuffer(data))
 		c.Assert(err, IsNil)
 		c.Assert(img.Bounds().Size().X, Equals, size)
-
-		// Remember to cleanup
-		ctx.Goat.Close()
 	}
 }
