@@ -45,7 +45,7 @@ func handleImageRequest(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", gc.Mime)
 	w.Header().Set("Cache-Control", "max-age=31536000")
-	http.ServeContent(w, r, gc.ImageId, time.Now(), bytes.NewReader(data))
+	http.ServeContent(w, r, gc.ImageId, time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC), bytes.NewReader(data))
 
 	log.Printf("Request elapsed time (%s): %s", gc.CacheKey, time.Now().Sub(start))
 
