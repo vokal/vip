@@ -11,6 +11,7 @@ import (
 	"github.com/vokalinteractive/vip/peer"
 	"github.com/vokalinteractive/vip/pg"
 	"github.com/vokalinteractive/vip/store"
+	"go-loggly"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
@@ -61,6 +62,11 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 
 func init() {
 	flag.Parse()
+
+	loggly_key := os.Getenv("LOGGLY_KEY")
+	if loggly_key != "" {
+		log.SetOutput(loggly.New(loggly_key, "vip"))
+	}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/{bucket_id}/{image_id}", handleImageRequest)
