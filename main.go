@@ -11,6 +11,7 @@ import (
 	"github.com/vokalinteractive/vip/peer"
 	"github.com/vokalinteractive/vip/pg"
 	"github.com/vokalinteractive/vip/store"
+	"go-loggly"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
@@ -45,7 +46,7 @@ func handleImageRequest(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", gc.Mime)
 	w.Header().Set("Cache-Control", "max-age=31536000")
-	http.ServeContent(w, r, gc.ImageId, time.Now(), bytes.NewReader(data))
+	http.ServeContent(w, r, gc.ImageId, time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC), bytes.NewReader(data))
 
 	log.Printf("Request elapsed time (%s): %s", gc.CacheKey, time.Now().Sub(start))
 
@@ -61,6 +62,11 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 
 func init() {
 	flag.Parse()
+
+	loggly_key := os.Getenv("LOGGLY_KEY")
+	if loggly_key != "" {
+		log.SetOutput(loggly.New(loggly_key, "vip"))
+	}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/{bucket_id}/{image_id}", handleImageRequest)
