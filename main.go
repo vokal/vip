@@ -7,9 +7,7 @@ import (
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
 	"github.com/vokalinteractive/vip/fetch"
-	"github.com/vokalinteractive/vip/mongo"
 	"github.com/vokalinteractive/vip/peer"
-	"github.com/vokalinteractive/vip/pg"
 	"github.com/vokalinteractive/vip/store"
 	"go-loggly"
 	"launchpad.net/goamz/aws"
@@ -18,7 +16,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -26,7 +23,6 @@ var (
 	cache   *groupcache.Group
 	peers   peer.CachePool
 	storage store.ImageStore
-	fw      fetch.FetchWriter
 
 	httpport *string = flag.String("httpport", "8080", "target port")
 )
@@ -34,21 +30,35 @@ var (
 func handleImageRequest(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	gc := fetch.RequestContext(r, fw)
+	// Client is checking for a cached URI, assume it is valid
+	// and return a 304
+	if r.Header.Get("If-Modified-Since") != "" {
+		w.Header().Set("Cache-Control", "public, max-age=31536000")
+		w.WriteHeader(http.StatusNotModified)
+		log.Printf("Request elapsed time : %s", time.Now().Sub(start))
+		return
+	}
 
+	gc := fetch.RequestContext(r)
+
+	fmt.Printf("Request for %s from groupcache\n", gc.CacheKey())
+
+	c := time.Now()
 	var data []byte
-	fmt.Printf("Request for %s from groupcache\n", gc.CacheKey)
-	err := cache.Get(gc, gc.CacheKey,
-		groupcache.AllocatingByteSliceSink(&data))
+	err := cache.Get(gc, gc.CacheKey(), groupcache.AllocatingByteSliceSink(&data))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	w.Header().Set("Content-Type", gc.Mime)
-	w.Header().Set("Cache-Control", "max-age=31536000")
+	log.Printf("Cache fetch elapsed time (%s): %s", gc.CacheKey(), time.Now().Sub(c))
+
+	send := time.Now()
+	w.Header().Set("Content-Type", http.DetectContentType(data))
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
 	http.ServeContent(w, r, gc.ImageId, time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC), bytes.NewReader(data))
 
-	log.Printf("Request elapsed time (%s): %s", gc.CacheKey, time.Now().Sub(start))
+	log.Printf("Transmit elapsed time (%s): %s", gc.CacheKey(), time.Now().Sub(send))
+	log.Printf("Request elapsed time (%s): %s", gc.CacheKey(), time.Now().Sub(start))
 
 	return
 }
@@ -74,30 +84,7 @@ func init() {
 	http.Handle("/", r)
 }
 
-func dialBackend() {
-	database := os.Getenv("DATABASE_URL")
-	if database == "" {
-		database = "localhost"
-	}
-
-	var err error
-
-	if strings.Contains(database, "mongo") {
-		fw, err = mongo.Dial(database)
-	} else if strings.Contains(database, "postgres") {
-		fw, err = pg.Dial(database)
-	} else {
-		panic("Invalid database connection string")
-	}
-
-	if err != nil {
-		panic(err.Error())
-	}
-}
-
 func main() {
-	dialBackend()
-
 	awsAuth, err := aws.EnvAuth()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -113,20 +100,19 @@ func main() {
 	}
 
 	peers.SetContext(func(r *http.Request) groupcache.Context {
-		return fetch.RequestContext(r, fw)
+		return fetch.RequestContext(r)
 	})
 
 	cache = groupcache.NewGroup("ImageProxyCache", 64<<20, groupcache.GetterFunc(
 		func(c groupcache.Context, key string, dest groupcache.Sink) error {
 			log.Printf("Cache MISS for key -> %s", key)
 			// Get image data from S3
-			data, err := fetch.ImageData(storage, c)
+			b, err := fetch.ImageData(storage, c)
 			if err != nil {
 				return err
 			}
 
-			dest.SetBytes(data)
-			return nil
+			return dest.SetBytes(b)
 		}))
 
 	go peers.Listen()

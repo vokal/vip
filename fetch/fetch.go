@@ -15,32 +15,10 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
-type FetchWriter interface {
-	FindOriginal(storage store.ImageStore, c *CacheContext) ([]byte, string, error)
-	FindResized(storage store.ImageStore, c *CacheContext) ([]byte, string, error)
-	WriteResized(buf []byte, storage store.ImageStore, c *CacheContext) error
-}
-
-type CacheContext struct {
-	CacheKey string
-	ImageId  string
-	Bucket   string
-	Mime     string
-	Width    int
-	Fw       FetchWriter
-}
-
-func GetCacheKey(bucket, id string, width int) string {
-	if width == 0 {
-		return fmt.Sprintf("%s/%s", bucket, id)
-	}
-
-	return fmt.Sprintf("%s/%s/s/%d", bucket, id, width)
-}
-
-func RequestContext(r *http.Request, fw FetchWriter) *CacheContext {
+func RequestContext(r *http.Request) *CacheContext {
 	vars := mux.Vars(r)
 
 	width, _ := strconv.Atoi(r.FormValue("s"))
@@ -52,15 +30,13 @@ func RequestContext(r *http.Request, fw FetchWriter) *CacheContext {
 	}
 
 	return &CacheContext{
-		CacheKey: GetCacheKey(bucket, imageId, width),
-		ImageId:  imageId,
-		Bucket:   bucket,
-		Width:    width,
-		Fw:       fw,
+		ImageId: imageId,
+		Bucket:  bucket,
+		Width:   width,
 	}
 }
 
-func Resize(src io.Reader, c *CacheContext) ([]byte, error) {
+func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 	image, format, err := image.Decode(src)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -69,21 +45,28 @@ func Resize(src io.Reader, c *CacheContext) ([]byte, error) {
 
 	buf := new(bytes.Buffer)
 
-	dst := imaging.Clone(image)
-
 	factor := float64(c.Width) / float64(image.Bounds().Size().X)
 	height := int(float64(image.Bounds().Size().Y) * factor)
 
-	dst = imaging.Resize(dst, c.Width, height, imaging.Linear)
+	start := time.Now()
+	image = imaging.Resize(image, c.Width, height, imaging.Linear)
+	log.Printf("Resize time: %s", time.Now().Sub(start))
 
 	switch format {
 	case "jpeg":
-		jpeg.Encode(buf, dst, nil)
+		jpeg.Encode(buf, image, nil)
 	case "png":
-		err = png.Encode(buf, dst)
+		err = png.Encode(buf, image)
 	}
 
-	return buf.Bytes(), err
+	return buf, err
+}
+
+func readImage(r io.Reader) ([]byte, error) {
+	var b bytes.Buffer
+	_, err := b.ReadFrom(r)
+
+	return b.Bytes(), err
 }
 
 func ImageData(storage store.ImageStore, gc groupcache.Context) ([]byte, error) {
@@ -92,45 +75,66 @@ func ImageData(storage store.ImageStore, gc groupcache.Context) ([]byte, error) 
 		return nil, errors.New("invalid context")
 	}
 
-	var data []byte
+	var reader io.ReadCloser
 	var err error
 
+	defer func() {
+		if reader != nil {
+			reader.Close()
+		}
+	}()
+
+	start := time.Now()
 	// If the image was requested without any size modifier
 	if c.Width == 0 {
-		data, c.Mime, err = c.Fw.FindOriginal(storage, c)
+		reader, err = c.ReadOriginal(storage)
 		if err != nil {
 			return nil, err
 		}
+		log.Printf("Found original in: %s", time.Now().Sub(start))
 
-		return data, err
+		return readImage(reader)
 	}
 
-	data, c.Mime, err = c.Fw.FindResized(storage, c)
+	start = time.Now()
+	reader, err = c.ReadResized(storage)
+	log.Printf("Checked for resized in S3 in: %s", time.Now().Sub(start))
 	if err != nil {
-		data, c.Mime, err = c.Fw.FindOriginal(storage, c)
+		start = time.Now()
+		reader, err := c.ReadOriginal(storage)
 		if err != nil {
 			return nil, err
 		}
+		log.Printf("Retrieved original for resize in S3: %s", time.Now().Sub(start))
 
 		// Gifs don't get resized
+		/* TODO: Detect mimetype earlier
 		if c.Mime == "image/gif" {
 			return data, err
 		}
+		*/
 
-		buf, err := Resize(bytes.NewBuffer(data), c)
+		buf, err := Resize(reader, c)
 		if err != nil {
 			return nil, err
 		}
 
-		err = c.Fw.WriteResized(buf, storage, c)
+		result, err := readImage(buf)
 		if err != nil {
 			return nil, err
 		}
+
+		go func() {
+			err = c.WriteResized(result, storage)
+			if err != nil {
+				log.Printf("s3 upload: %s", err.Error())
+			}
+		}()
 
 		log.Println("Retrieved original and stored resized image in S3")
-		return buf, err
+		return result, err
 	}
 
 	log.Println("Retrieved resized image from S3")
-	return data, err
+	return readImage(reader)
 }
