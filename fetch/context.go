@@ -2,10 +2,10 @@ package fetch
 
 import (
 	"fmt"
-	"github.com/vokalinteractive/vip/store"
 	"io"
 	"log"
 	"net/http"
+	"vip/store"
 )
 
 type CacheContext struct {

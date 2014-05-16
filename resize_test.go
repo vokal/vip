@@ -2,15 +2,13 @@ package main
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
-	"github.com/vokalinteractive/vip/fetch"
+	. "gopkg.in/check.v1"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
-	"io"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
+	"vip/fetch"
+	"vip/test"
 )
 
 var (
@@ -25,38 +23,6 @@ var (
 	}
 )
 
-type DebugStore struct {
-	store map[string][]byte
-}
-
-type MockCloser struct {
-	io.Reader
-}
-
-func (m MockCloser) Close() error {
-	return nil
-}
-
-func NewDebugStore() *DebugStore {
-	return &DebugStore{
-		store: make(map[string][]byte),
-	}
-}
-
-func (s *DebugStore) GetReader(bucket, path string) (io.ReadCloser, error) {
-	data := s.store[fmt.Sprintf("%s|%s", bucket, path)]
-	if data == nil {
-		return nil, errors.New("item doesn't exist")
-	}
-
-	return MockCloser{bytes.NewBuffer(data)}, nil
-}
-
-func (s *DebugStore) Put(bucket, path string, data []byte, content string) error {
-	s.store[fmt.Sprintf("%s|%s", bucket, path)] = data
-	return nil
-}
-
 var (
 	_ = Suite(&ResizeSuite{})
 )
@@ -70,7 +36,7 @@ func (s *ResizeSuite) SetUpSuite(c *C) {
 func (s *ResizeSuite) SetUpTest(c *C) {
 	setUpTest(c)
 
-	storage = NewDebugStore()
+	storage = test.NewStore()
 }
 
 func (s *ResizeSuite) BenchmarkThumbnailResize(c *C) {

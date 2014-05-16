@@ -3,6 +3,8 @@ env:
     - GOPATH=/var/cache/drone
     - PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 script:
+    - cd .. && mv vip /var/cache/drone/src
+    - cd /var/cache/drone/src/vip
     - apt-get -y install bzr mercurial
     - go get
     - go get -t
