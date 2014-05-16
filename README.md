@@ -59,3 +59,4 @@ Cloudfront CDN setup a custom origin with the FQDN of your proxy, and also permi
 methods on the distribution.
 
 ![alt text](https://images.vokalinteractive.com/vokalvip/c528c0a28a980402a236267e60009422?s=650 "VIP was here")
+
