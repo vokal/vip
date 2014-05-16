@@ -7,7 +7,6 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
-	"github.com/vokalinteractive/vip/store"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -15,7 +14,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"time"
+	"vip/store"
 )
 
 func RequestContext(r *http.Request) *CacheContext {
@@ -48,9 +47,7 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 	factor := float64(c.Width) / float64(image.Bounds().Size().X)
 	height := int(float64(image.Bounds().Size().Y) * factor)
 
-	start := time.Now()
 	image = imaging.Resize(image, c.Width, height, imaging.Linear)
-	log.Printf("Resize time: %s", time.Now().Sub(start))
 
 	switch format {
 	case "jpeg":
@@ -84,28 +81,22 @@ func ImageData(storage store.ImageStore, gc groupcache.Context) ([]byte, error) 
 		}
 	}()
 
-	start := time.Now()
 	// If the image was requested without any size modifier
 	if c.Width == 0 {
 		reader, err = c.ReadOriginal(storage)
 		if err != nil {
 			return nil, err
 		}
-		log.Printf("Found original in: %s", time.Now().Sub(start))
 
 		return readImage(reader)
 	}
 
-	start = time.Now()
 	reader, err = c.ReadResized(storage)
-	log.Printf("Checked for resized in S3 in: %s", time.Now().Sub(start))
 	if err != nil {
-		start = time.Now()
 		reader, err := c.ReadOriginal(storage)
 		if err != nil {
 			return nil, err
 		}
-		log.Printf("Retrieved original for resize in S3: %s", time.Now().Sub(start))
 
 		// Gifs don't get resized
 		/* TODO: Detect mimetype earlier

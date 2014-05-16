@@ -1,8 +1,8 @@
 package main
 
 import (
+	. "gopkg.in/check.v1"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
 	"log"
 	"testing"
 )
