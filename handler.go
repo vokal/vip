@@ -63,8 +63,6 @@ func handleImageRequest(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", http.DetectContentType(data))
 	http.ServeContent(w, r, gc.ImageId, time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC), bytes.NewReader(data))
-
-	return
 }
 
 func handleUpload(w http.ResponseWriter, r *http.Request) {
@@ -99,13 +97,9 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(UploadResponse{
 		Url: fmt.Sprintf("%s/%s", bucket, key),
 	})
-
-	return
 }
 
 func handlePing(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "pong")
-
-	return
 }
