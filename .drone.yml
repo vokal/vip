@@ -8,3 +8,4 @@ script:
     - go get -t
     - go build
     - go test -gocheck.v
+    - go test -gocheck.v -gocheck.b
