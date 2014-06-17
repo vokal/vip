@@ -6,6 +6,7 @@ import (
 	. "gopkg.in/check.v1"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"vip/test"
 )
@@ -51,7 +52,13 @@ func (s *UploadSuite) TestUpload(c *C) {
 	err = json.NewDecoder(recorder.Body).Decode(&u)
 	c.Assert(err, IsNil)
 	c.Assert(len(u.Url), Not(Equals), 0)
-	c.Assert(u.Url[:12], Equals, "samplebucket")
+
+	uri, err := url.Parse(u.Url)
+	c.Assert(err, IsNil)
+
+	c.Assert(uri.Scheme, Equals, "http")
+	c.Assert(uri.Host, Equals, "localhost:8080")
+	c.Assert(uri.Path[1:13], Equals, "samplebucket")
 }
 
 func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
