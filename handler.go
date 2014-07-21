@@ -10,6 +10,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 	"vip/fetch"
 )
@@ -94,6 +95,12 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	uri := r.URL
+
+	if r.URL.Host == "" {
+		uri.Host = os.Getenv("URI_HOSTNAME")
+		uri.Scheme = "http"
+	}
+
 	uri.Path = fmt.Sprintf("%s/%s", bucket, key)
 
 	w.WriteHeader(http.StatusCreated)
