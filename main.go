@@ -56,6 +56,7 @@ func getRegion() aws.Region {
 	case "us-east-1":
 		return aws.USEast
 	default:
+		log.Println("No AWS_REGION parameter provided, defaulting to us-east-1")
 		return aws.USEast
 	}
 }
