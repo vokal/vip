@@ -151,3 +151,29 @@ func (s *ResizeSuite) TestResizeColdCache(c *C) {
 		c.Assert(img.Bounds().Size().X, Equals, size)
 	}
 }
+
+func (s *ResizeSuite) TestResizeCropColdCache(c *C) {
+	// A single, unresized image is in the database/store
+	mockCtx, err := s.insertMockImage()
+	c.Assert(err, IsNil)
+
+	for _, size := range sizes {
+		ctx := &fetch.CacheContext{
+			ImageId: mockCtx.ImageId,
+			Bucket:  mockCtx.Bucket,
+			Width:   size,
+			Crop:    true,
+		}
+
+		// Run the image resize request
+		data, err := fetch.ImageData(storage, ctx)
+		c.Assert(err, IsNil)
+
+		// Verify the size of the resulting byte slice
+		img, _, err := image.Decode(bytes.NewBuffer(data))
+		c.Assert(err, IsNil)
+		c.Assert(img.Bounds().Size().X, Equals, img.Bounds().Size().Y)
+		c.Assert(img.Bounds().Size().X > 0, Equals, true)
+		c.Assert(img.Bounds().Size().X <= size, Equals, true)
+	}
+}

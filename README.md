@@ -17,6 +17,10 @@ For example, if you want to resize an image down to a 160 pixel thumbnail:
         
         images.example.com/mybucket/5272a0e7d0d9813e21?s=160
 
+Resized images may also be center-cropped by passing `?c=true` in the querystring:
+        
+        images.example.com/mybucket/5272a0e7d0d9813e21?s=160&c=true
+
 The thumbnail will then be cached to both `groupcache` and S3. If the image leaves
 the in-memory cache it will not need to be resized again. 
 
@@ -29,7 +33,7 @@ need to be provided. The route for uploads is:
 This will upload the supplied image into `mybucket` and return a JSON-encoded serving URL:
 
         {
-            "url": "images.example.com/mybucket/5272a0e7d0d9813e21?s=160"
+            "url": "http://images.example.com/mybucket/5272a0e7d0d9813e21"
         }
 
 ### Deploying
