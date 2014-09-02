@@ -45,6 +45,21 @@ func listenHttp() {
 	}
 }
 
+func getRegion() aws.Region {
+	region := os.Getenv("AWS_REGION")
+
+	switch region {
+	case "us-west-1":
+		return aws.USWest
+	case "us-west-2":
+		return aws.USWest2
+	case "us-east-1":
+		return aws.USEast
+	default:
+		return aws.USEast
+	}
+}
+
 func init() {
 	flag.Parse()
 
@@ -72,7 +87,7 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	s3conn := s3.New(awsAuth, aws.USEast)
+	s3conn := s3.New(awsAuth, getRegion())
 	storage = store.NewS3Store(s3conn)
 
 	if os.Getenv("DEBUG") == "True" {
