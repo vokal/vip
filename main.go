@@ -47,16 +47,13 @@ func listenHttp() {
 
 func getRegion() aws.Region {
 	region := os.Getenv("AWS_REGION")
-
-	switch region {
-	case "us-west-1":
-		return aws.USWest
-	case "us-west-2":
-		return aws.USWest2
-	case "us-east-1":
-		return aws.USEast
-	default:
-		log.Println("No AWS_REGION parameter provided, defaulting to us-east-1")
+	aws_region, ok = aws.Regions[region]
+	if ok {
+		return aws_region
+	} else {
+		log.Printf(
+			"\"%s\" is not a valid AWS_REGION parameter provided, defaulting to us-east-1",
+			region)
 		return aws.USEast
 	}
 }
