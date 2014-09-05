@@ -47,7 +47,7 @@ func listenHttp() {
 
 func getRegion() aws.Region {
 	region := os.Getenv("AWS_REGION")
-	aws_region, ok = aws.Regions[region]
+	aws_region, ok := aws.Regions[region]
 	if ok {
 		return aws_region
 	} else {
