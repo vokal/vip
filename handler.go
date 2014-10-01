@@ -75,7 +75,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	bucket := vars["bucket_id"]
 
 	// Set a hard 5mb limit on files
-	if r.ContentLength > 6<<20 {
+	if r.ContentLength > 5<<20 {
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
 		return
 	}
@@ -104,6 +104,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	uri.Path = fmt.Sprintf("%s/%s", bucket, key)
 
 	w.WriteHeader(http.StatusCreated)
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(UploadResponse{
 		Url: uri.String(),
 	})
