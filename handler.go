@@ -103,8 +103,9 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	uri.Path = fmt.Sprintf("%s/%s", bucket, key)
 
-	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(UploadResponse{
 		Url: uri.String(),
 	})
