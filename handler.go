@@ -22,6 +22,18 @@ type UploadResponse struct {
 type verifyAuth func(http.ResponseWriter, *http.Request)
 
 func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Enable cross-origin requests
+	if origin := r.Header.Get("Origin"); origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers",
+			"Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	}
+
+	if r.Method == "OPTIONS" {
+		return
+	}
+
 	auth := r.Header.Get("X-Vip-Token")
 	if auth != authToken {
 		w.WriteHeader(http.StatusUnauthorized)
