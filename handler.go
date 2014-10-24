@@ -23,11 +23,12 @@ type verifyAuth func(http.ResponseWriter, *http.Request)
 
 func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Enable cross-origin requests
+	// TODO: Whitelist the domain via an environment variable
 	if origin := r.Header.Get("Origin"); origin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers",
-			"Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+			"Accept, Content-Type, Content-Length, Accept-Encoding, X-Vip-Token, Authorization")
 	}
 
 	if r.Method == "OPTIONS" {
