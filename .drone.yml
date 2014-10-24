@@ -5,8 +5,8 @@ env:
 script:
     - cd .. && mv vip /var/cache/drone/src
     - cd /var/cache/drone/src/vip
-    - apt-get update -qq
-    - apt-get -y install bzr mercurial
+    - sudo apt-get update -qq
+    - sudo apt-get -y install bzr mercurial
     - go get
     - go get -t
     - go build
