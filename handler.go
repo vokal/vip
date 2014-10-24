@@ -24,7 +24,7 @@ type verifyAuth func(http.ResponseWriter, *http.Request)
 func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Enable cross-origin requests
 	// TODO: Whitelist the domain via an environment variable
-	if domain := os.Getenv("DOMAIN_DATA"); domain != "": {
+	if domain := os.Getenv("DOMAIN_DATA"); domain == "": {
 		if origin := r.Header.Get("Origin"); origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
