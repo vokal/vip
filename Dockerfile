@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM ubuntu:trusty
 MAINTAINER Scott Ferguson <scott.ferguson@vokalinteractive.com>
 
 RUN apt-get update -qq
