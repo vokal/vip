@@ -24,3 +24,4 @@ publish:
         email: docker@vokalinteractive.com
         image_name: docker.vokalinteractive.com/vip
         tags: [latest]
+        push_latest: true

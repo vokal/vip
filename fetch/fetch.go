@@ -63,13 +63,6 @@ func ImageData(storage store.ImageStore, gc groupcache.Context) ([]byte, error) 
 		return readImage(reader)
 	}
 
-	// Gifs don't get resized
-	/* TODO: Detect mimetype earlier
-	if c.Mime == "image/gif" {
-		return data, err
-	}
-	*/
-
 	var buf io.Reader
 	if c.Width != 0 {
 		buf, err = Resize(reader, c)
