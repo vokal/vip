@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/disintegration/imaging"
 	"image"
+	"image/gif"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -18,6 +19,12 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 	}
 
 	buf := new(bytes.Buffer)
+
+	// Gifs don't get modified
+	if format == "gif" {
+		err = gif.Encode(buf, image, nil)
+		return buf, err
+	}
 
 	factor := float64(c.Width) / float64(image.Bounds().Size().X)
 	height := int(float64(image.Bounds().Size().Y) * factor)
@@ -42,6 +49,12 @@ func CenterCrop(src io.Reader, c *CacheContext) (io.Reader, error) {
 	}
 
 	buf := new(bytes.Buffer)
+
+	// Gifs don't get modified
+	if format == "gif" {
+		err = gif.Encode(buf, image, nil)
+		return buf, err
+	}
 
 	height := image.Bounds().Size().Y
 	width := image.Bounds().Size().X
