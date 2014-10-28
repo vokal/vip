@@ -29,7 +29,7 @@ func (s *UploadSuite) SetUpTest(c *C) {
 
 func (s *UploadSuite) TestUpload(c *C) {
 	authToken = "lalalatokenlalala"
-	os.Setenv("DOMAIN_DATA", "")
+	os.Setenv("DOMAIN_DATA", "data")
 
 	recorder := httptest.NewRecorder()
 
@@ -65,7 +65,7 @@ func (s *UploadSuite) TestUpload(c *C) {
 
 func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
 	authToken = "lalalatokenlalala"
-	os.Setenv("DOMAIN_DATA", "")
+	os.Setenv("DOMAIN_DATA", "some data")
 
 	recorder := httptest.NewRecorder()
 
@@ -78,6 +78,7 @@ func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
 	c.Assert(err, IsNil)
 
 	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
+
 	c.Assert(err, IsNil)
 
 	req.Header.Set("Content-Type", "image/jpeg")
@@ -100,6 +101,7 @@ func (s *UploadSuite) TestSetDomainData(c *C) {
 	c.Assert(err, IsNil)
 
 	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
+	req.Header.Set("Origin", "WHATEVER, MAN")
 	c.Assert(err, IsNil)
 
 	req.Header.Set("Content-Type", "image/jpeg")
