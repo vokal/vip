@@ -52,6 +52,20 @@ func ImageData(storage store.ImageStore, gc groupcache.Context) ([]byte, error) 
 		}
 	}()
 
+	resp, err := storage.Head(c.Bucket, c.ImageId)
+	if err != nil {
+		// Don't break on an error
+		log.Println(err)
+	} else if resp.Header.Get("Content-Type") == "image/gif" {
+		// Handle gifs exclusively
+		reader, err = c.ReadOriginal(storage)
+		if err != nil {
+			return nil, err
+		}
+
+		return readImage(reader)
+	}
+
 	reader, err = c.ReadModified(storage)
 	if err != nil {
 		reader, err = c.ReadOriginal(storage)
