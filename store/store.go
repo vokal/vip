@@ -1,14 +1,16 @@
 package store
 
 import (
+	"github.com/mitchellh/goamz/s3"
 	"io"
-	"launchpad.net/goamz/s3"
+	"net/http"
 )
 
 type ImageStore interface {
 	GetReader(string, string) (io.ReadCloser, error)
 	PutReader(string, string, io.ReadCloser, int64, string) error
 	Put(string, string, []byte, string) error
+	Head(string, string) (*http.Response, error)
 }
 
 type S3ImageStore struct {
@@ -29,4 +31,8 @@ func (s *S3ImageStore) PutReader(bucket, path string, data io.ReadCloser, length
 
 func (s *S3ImageStore) Put(bucket, path string, data []byte, content string) error {
 	return s.conn.Bucket(bucket).Put(path, data, content, s3.BucketOwnerRead)
+}
+
+func (s *S3ImageStore) Head(bucket, path string) (*http.Response, error) {
+	return s.conn.Bucket(bucket).Head(path)
 }
