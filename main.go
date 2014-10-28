@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
+	"github.com/mitchellh/goamz/aws"
+	"github.com/mitchellh/goamz/s3"
 	"github.com/vokalinteractive/go-loggly"
-	"launchpad.net/goamz/aws"
-	"launchpad.net/goamz/ec2"
-	"launchpad.net/goamz/s3"
 	"log"
 	"net/http"
 	"os"
@@ -24,6 +23,7 @@ var (
 	authToken string
 
 	httpport *string = flag.String("httpport", "8080", "target port")
+	secure   *bool   = flag.Bool("secure", false, "use SSL")
 )
 
 func listenHttp() {
@@ -88,11 +88,7 @@ func main() {
 	s3conn := s3.New(awsAuth, getRegion())
 	storage = store.NewS3Store(s3conn)
 
-	if os.Getenv("DEBUG") == "True" {
-		peers = peer.DebugPool()
-	} else {
-		peers = peer.Pool(ec2.New(awsAuth, aws.USEast))
-	}
+	peers = peer.DebugPool()
 
 	peers.SetContext(func(r *http.Request) groupcache.Context {
 		return fetch.RequestContext(r)
