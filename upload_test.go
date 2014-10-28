@@ -29,7 +29,7 @@ func (s *UploadSuite) SetUpTest(c *C) {
 
 func (s *UploadSuite) TestUpload(c *C) {
 	authToken = "lalalatokenlalala"
-	os.Setenv("DOMAIN_DATA", "data")
+	os.Setenv("DOMAIN_DATA", "")
 
 	recorder := httptest.NewRecorder()
 
@@ -65,7 +65,7 @@ func (s *UploadSuite) TestUpload(c *C) {
 
 func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
 	authToken = "lalalatokenlalala"
-	os.Setenv("DOMAIN_DATA", "some data")
+	os.Setenv("ALLOWED_ORIGIN", "")
 
 	recorder := httptest.NewRecorder()
 
@@ -88,9 +88,9 @@ func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
 	c.Assert(recorder.Code, Equals, http.StatusUnauthorized)
 }
 
-func (s *UploadSuite) TestSetDomainData(c *C) {
+func (s *UploadSuite) TestSetOriginData(c *C) {
 	authToken = "heyheyheyimatoken"
-	os.Setenv("DOMAIN_DATA", "WHATEVER, MAN")
+	os.Setenv("ALLOWED_ORIGIN", "WHATEVER, MAN")
 
 	recorder := httptest.NewRecorder()
 
