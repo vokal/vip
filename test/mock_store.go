@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 )
 
 type Store struct {
@@ -44,4 +45,8 @@ func (s *Store) PutReader(bucket, path string, data io.ReadCloser, length int64,
 func (s *Store) Put(bucket, path string, data []byte, content string) error {
 	s.store[fmt.Sprintf("%s|%s", bucket, path)] = data
 	return nil
+}
+
+func (s *Store) Head(bucket, path string) (*http.Response, error) {
+	return nil, nil
 }
