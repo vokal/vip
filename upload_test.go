@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"vip/test"
+	"fmt"
 )
 
 var (
@@ -29,6 +30,7 @@ func (s *UploadSuite) SetUpTest(c *C) {
 
 func (s *UploadSuite) TestUpload(c *C) {
 	authToken = "lalalatokenlalala"
+	os.Setenv("DOMAIN_DATA", "")
 
 	recorder := httptest.NewRecorder()
 
@@ -64,6 +66,7 @@ func (s *UploadSuite) TestUpload(c *C) {
 
 func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
 	authToken = "lalalatokenlalala"
+	os.Setenv("DOMAIN_DATA", "")
 
 	recorder := httptest.NewRecorder()
 
@@ -83,4 +86,26 @@ func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
 	m.ServeHTTP(recorder, req)
 
 	c.Assert(recorder.Code, Equals, http.StatusUnauthorized)
+}
+
+func (s *UploadSuite) TestSetDomainData(c *C) {
+	authToken = "heyheyheyimatoken"
+	os.Setenv("DOMAIN_DATA", "WHATEVER, MAN")
+
+	recorder := httptest.NewRecorder()
+
+	m := mux.NewRouter()
+	m.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
+
+	f, err := os.Open("./test/awesome.jpeg")
+	c.Assert(err, IsNil)
+
+	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
+	c.Assert(err, IsNil)
+
+	req.Header.Set("Content-Type", "image/jpeg")
+
+	m.ServeHTTP(recorder, req)
+
+	c.Assert(recorder.Code, Equals, http.StatusCreated)
 }
