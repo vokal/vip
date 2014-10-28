@@ -82,6 +82,7 @@ func handleImageRequest(w http.ResponseWriter, r *http.Request) {
 func handleUpload(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
 	}
 
 	vars := mux.Vars(r)
@@ -111,7 +112,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Host == "" {
 		uri.Host = os.Getenv("URI_HOSTNAME")
-		uri.Scheme = "http"
+		uri.Scheme = r.URL.Scheme()
 	}
 
 	uri.Path = fmt.Sprintf("%s/%s", bucket, key)
