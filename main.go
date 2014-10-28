@@ -23,6 +23,7 @@ var (
 	authToken string
 
 	httpport *string = flag.String("httpport", "8080", "target port")
+	secure   *bool   = flag.Bool("secure", false, "use SSL")
 )
 
 func listenHttp() {
