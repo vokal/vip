@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"vip/test"
-	"fmt"
 )
 
 var (
