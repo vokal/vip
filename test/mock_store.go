@@ -48,5 +48,5 @@ func (s *Store) Put(bucket, path string, data []byte, content string) error {
 }
 
 func (s *Store) Head(bucket, path string) (*http.Response, error) {
-	return nil, nil
+	return nil, errors.New("")
 }
