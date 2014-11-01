@@ -26,3 +26,9 @@ publish:
         image_name: docker.vokalinteractive.com/vip
         tags: [latest]
         push_latest: true
+notify:
+    webhook:
+        urls:
+            - https://dronebot.vokalinteractive.com/hook
+        on_success: true
+        on_failure: true
