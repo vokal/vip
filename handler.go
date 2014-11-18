@@ -93,7 +93,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket_id"]
 
-	// Set a hard 5mb limit on files
+	// Set a hard limit in MB on files
 	var limit int64 = 5
 	if r.ContentLength > limit<<20 {
 		w.Header().Set("Content-Type", "application/json")
