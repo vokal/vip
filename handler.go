@@ -90,10 +90,9 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	bucket := vars["bucket_id"]
 
 	// Set a hard 5mb limit on files
-	limit := 5
+	var limit int64 = 5
 	if r.ContentLength > limit<<20 {
-		errMsg := fmt.Printf("The file size limit is %dMB.\n", limit)
-		http.Error(w, errMsg, http.StatusRequestEntityTooLarge)
+		http.Error(w, fmt.Sprintf("The file size limit is %dMB.\n", limit), http.StatusRequestEntityTooLarge)
 		return
 	}
 
