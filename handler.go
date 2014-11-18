@@ -19,6 +19,10 @@ type UploadResponse struct {
 	Url string `json:"url"`
 }
 
+type ErrorResponse struct {
+	Msg string `json:"error"`
+}
+
 type verifyAuth func(http.ResponseWriter, *http.Request)
 
 func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +39,7 @@ func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if auth != authToken {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
-		}	
+		}
 	}
 
 	if r.Method == "OPTIONS" {
@@ -89,9 +93,14 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket_id"]
 
-	// Set a hard 5mb limit on files
-	if r.ContentLength > 5<<20 {
+	// Set a hard limit in MB on files
+	var limit int64 = 5
+	if r.ContentLength > limit<<20 {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		json.NewEncoder(w).Encode(ErrorResponse{
+			Msg: fmt.Sprintf("The file size limit is %dMB", limit),
+		})
 		return
 	}
 
