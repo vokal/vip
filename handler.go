@@ -35,7 +35,7 @@ func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if auth != authToken {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
-		}	
+		}
 	}
 
 	if r.Method == "OPTIONS" {
@@ -90,8 +90,10 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	bucket := vars["bucket_id"]
 
 	// Set a hard 5mb limit on files
-	if r.ContentLength > 5<<20 {
-		w.WriteHeader(http.StatusRequestEntityTooLarge)
+	limit := 5
+	if r.ContentLength > limit<<20 {
+		errMsg := fmt.Printf("The file size limit is %dMB.\n", limit)
+		http.Error(w, errMsg, http.StatusRequestEntityTooLarge)
 		return
 	}
 
