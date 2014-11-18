@@ -1,8 +1,8 @@
 package main
 
 import (
+	. "gopkg.in/check.v1"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
 	"log"
 	"testing"
 )
@@ -15,15 +15,8 @@ func Test(t *testing.T) {
 func setUpSuite(c *C) {
 	// Silence the logger
 	log.SetOutput(ioutil.Discard)
-
-	// We'll want to use a test database, not the development database
-	g.RegisterMiddleware(g.NewDatabaseMiddleware("localhost", "vip-test"))
 }
 
-func setUpTest(c *C) {
-	g.CloneDB().DropDatabase()
-}
+func setUpTest(c *C) {}
 
-func tearDownSuite(c *C) {
-	g.Close()
-}
+func tearDownSuite(c *C) {}

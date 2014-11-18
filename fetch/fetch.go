@@ -3,200 +3,107 @@ package fetch
 import (
 	"bytes"
 	"errors"
-	"fmt"
-	"github.com/disintegration/imaging"
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
-	"github.com/scottferg/goat"
-	"image"
-	"image/jpeg"
-	"image/png"
 	"io"
-	"labix.org/v2/mgo/bson"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"vip/store"
 )
 
-type CacheContext struct {
-	CacheKey string
-	ImageId  string
-	Bucket   string
-	Mime     string
-	Width    int
-	Goat     *goat.Context
-}
-
-type ServingKey struct {
-	Id     bson.ObjectId `bson:"_id"`
-	Key    string        `bson:"key"`
-	Bucket string        `bson:"bucket"`
-	Mime   string        `bson:"mime"`
-	Url    string        `bson:"url"`
-}
-
-func GetCacheKey(bucket, id string, width int) string {
-	if width == 0 {
-		return fmt.Sprintf("%s/%s", bucket, id)
-	}
-
-	return fmt.Sprintf("%s/%s/s/%d", bucket, id, width)
-}
-
-func RequestContext(r *http.Request, c *goat.Context) *CacheContext {
+func RequestContext(r *http.Request) *CacheContext {
 	vars := mux.Vars(r)
 
 	width, _ := strconv.Atoi(r.FormValue("s"))
-	imageId := vars["image_id"]
-	bucket := vars["bucket_id"]
 
 	if width > 720 {
 		width = 720
 	}
 
 	return &CacheContext{
-		CacheKey: GetCacheKey(bucket, imageId, width),
-		ImageId:  imageId,
-		Bucket:   bucket,
-		Width:    width,
-		Goat:     c,
+		ImageId: vars["image_id"],
+		Bucket:  vars["bucket_id"],
+		Width:   width,
+		Crop:    strings.ToLower(r.FormValue("c")) == "true",
 	}
 }
 
-func FindOriginalImage(storage ImageStore, c *CacheContext) ([]byte, string, error) {
-	var result ServingKey
-	err := c.Goat.Database.C("image_serving_keys").Find(bson.M{
-		"key": c.ImageId,
-	}).One(&result)
+func readImage(r io.Reader) ([]byte, error) {
+	var b bytes.Buffer
+	_, err := b.ReadFrom(r)
 
-	if err == nil {
-		data, err := storage.Get(result.Bucket, result.Key)
-		if err != nil {
-			log.Printf("s3 download: %s", err.Error())
-			return nil, "", err
-		}
-
-		return data, result.Mime, err
-	}
-
-	return nil, "", err
+	return b.Bytes(), err
 }
 
-func FindResizedImage(storage ImageStore, c *CacheContext) ([]byte, string, error) {
-	var result ServingKey
-	err := c.Goat.Database.C("image_serving_keys").Find(bson.M{
-		"key": GetCacheKey(c.Bucket, c.ImageId, c.Width),
-	}).One(&result)
-
-	if err == nil {
-		// Strip the bucket out of the cache key
-		path := strings.Split(result.Key, c.Bucket+"/")[1]
-		data, err := storage.Get(result.Bucket, path)
-		if err != nil {
-			log.Printf("s3 download: %s", err.Error())
-			return nil, "", err
-		}
-
-		return data, result.Mime, err
-	}
-
-	return nil, "", err
-}
-
-func WriteResizedImage(buf []byte, storage ImageStore, c *CacheContext) error {
-	path := fmt.Sprintf("%s/s/%d", c.ImageId, c.Width)
-
-	key := ServingKey{
-		Id:     bson.NewObjectId(),
-		Key:    c.CacheKey,
-		Bucket: c.Bucket,
-		Mime:   c.Mime,
-		Url: fmt.Sprintf("https://s3.amazonaws.com/%s/%s",
-			c.Bucket, path),
-	}
-
-	go func() {
-		err := storage.Put(c.Bucket, path, buf, http.DetectContentType(buf))
-		if err != nil {
-			log.Printf("s3 upload: %s", err.Error())
-		}
-	}()
-
-	return c.Goat.Database.C("image_serving_keys").Insert(key)
-}
-
-func Resize(src io.Reader, c *CacheContext) ([]byte, error) {
-	image, format, err := image.Decode(src)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil, err
-	}
-
-	buf := new(bytes.Buffer)
-
-	dst := imaging.Clone(image)
-
-	factor := float64(c.Width) / float64(image.Bounds().Size().X)
-	height := int(float64(image.Bounds().Size().Y) * factor)
-
-	dst = imaging.Resize(dst, c.Width, height, imaging.Linear)
-
-	switch format {
-	case "jpeg":
-		jpeg.Encode(buf, dst, nil)
-	case "png":
-		err = png.Encode(buf, dst)
-	}
-
-	return buf.Bytes(), err
-}
-
-func ImageData(storage ImageStore, gc groupcache.Context) ([]byte, error) {
+func ImageData(storage store.ImageStore, gc groupcache.Context) ([]byte, error) {
 	c, ok := gc.(*CacheContext)
 	if !ok {
 		return nil, errors.New("invalid context")
 	}
 
-	var data []byte
+	var reader io.ReadCloser
 	var err error
 
-	// If the image was requested without any size modifier
-	if c.Width == 0 {
-		data, c.Mime, err = FindOriginalImage(storage, c)
-		if err != nil {
-			return nil, err
+	defer func() {
+		if reader != nil {
+			reader.Close()
 		}
+	}()
 
-		return data, err
-	}
-
-	data, c.Mime, err = FindResizedImage(storage, c)
+	resp, err := storage.Head(c.Bucket, c.ImageId)
 	if err != nil {
-		data, c.Mime, err = FindOriginalImage(storage, c)
+		// Don't break on an error
+		log.Println(err)
+	} else if resp.Header.Get("Content-Type") == "image/gif" {
+		// Handle gifs exclusively
+		reader, err = c.ReadOriginal(storage)
 		if err != nil {
 			return nil, err
 		}
 
-		// Gifs don't get resized
-		if c.Mime == "image/gif" {
-			return data, err
-		}
-
-		buf, err := Resize(bytes.NewBuffer(data), c)
-		if err != nil {
-			return nil, err
-		}
-
-		err = WriteResizedImage(buf, storage, c)
-		if err != nil {
-			return nil, err
-		}
-
-		log.Println("Retrieved original and stored resized image in S3")
-		return buf, err
+		return readImage(reader)
 	}
 
-	log.Println("Retrieved resized image from S3")
-	return data, err
+	reader, err = c.ReadModified(storage)
+	if err != nil {
+		reader, err = c.ReadOriginal(storage)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		log.Println("Retrieved resized image from S3")
+		return readImage(reader)
+	}
+
+	var buf io.Reader
+	if c.Width != 0 {
+		buf, err = Resize(reader, c)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if c.Crop {
+		buf, err = CenterCrop(buf, c)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	result, err := readImage(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		err = c.WriteModified(result, storage)
+		if err != nil {
+			log.Printf("s3 upload: %s", err.Error())
+		}
+	}()
+
+	log.Println("Retrieved original and stored resized image in S3")
+	return result, err
 }
