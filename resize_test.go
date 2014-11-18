@@ -2,51 +2,26 @@ package main
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
-	"github.com/scottferg/goat"
-	"github.com/vokalinteractive/vip/fetch"
+	. "gopkg.in/check.v1"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"io/ioutil"
-	"labix.org/v2/mgo/bson"
-	. "launchpad.net/gocheck"
+	"vip/fetch"
+	"vip/test"
 )
 
-var sizes = []int{
-	250,
-	500,
-	160,
-	720,
-	1024,
-	683,
-	431,
-}
-
-type DebugStore struct {
-	store map[string][]byte
-}
-
-func NewDebugStore() *DebugStore {
-	return &DebugStore{
-		store: make(map[string][]byte),
+var (
+	sizes = []int{
+		250,
+		500,
+		160,
+		720,
+		1024,
+		683,
+		431,
 	}
-}
-
-func (s *DebugStore) Get(bucket, path string) ([]byte, error) {
-	data := s.store[fmt.Sprintf("%s|%s", bucket, path)]
-	if data == nil {
-		return nil, errors.New("item doesn't exist")
-	}
-
-	return data, nil
-}
-
-func (s *DebugStore) Put(bucket, path string, data []byte, content string) error {
-	s.store[fmt.Sprintf("%s|%s", bucket, path)] = data
-	return nil
-}
+)
 
 var (
 	_ = Suite(&ResizeSuite{})
@@ -61,11 +36,7 @@ func (s *ResizeSuite) SetUpSuite(c *C) {
 func (s *ResizeSuite) SetUpTest(c *C) {
 	setUpTest(c)
 
-	storage = NewDebugStore()
-}
-
-func (s *ResizeSuite) TearDownSuite(c *C) {
-	tearDownSuite(c)
+	storage = test.NewStore()
 }
 
 func (s *ResizeSuite) BenchmarkThumbnailResize(c *C) {
@@ -113,7 +84,7 @@ func (s *ResizeSuite) TestResizeImage(c *C) {
 		resized, err := fetch.Resize(buf, ctx)
 		c.Assert(err, IsNil)
 
-		image, _, err := image.Decode(bytes.NewBuffer(resized))
+		image, _, err := image.Decode(resized)
 		c.Assert(err, IsNil)
 		c.Assert(image.Bounds().Size().X, Equals, size)
 	}
@@ -128,19 +99,9 @@ func (s *ResizeSuite) insertMockImage() (*fetch.CacheContext, error) {
 	// Push the file data into the mock datastore
 	storage.Put("test_bucket", "test_id", file, "image/jpeg")
 
-	// Create a mock serving key in the database
-	key := fetch.ServingKey{
-		Id:     bson.NewObjectId(),
-		Key:    "test_id",
-		Bucket: "test_bucket",
-		Mime:   "image/jpeg",
-	}
-	err = g.CloneDB().C("image_serving_keys").Insert(key)
-
 	return &fetch.CacheContext{
-		CacheKey: key.Key,
-		ImageId:  "test_id",
-		Bucket:   key.Bucket,
+		ImageId: "test_id",
+		Bucket:  "test_bucket",
 	}, err
 }
 
@@ -158,11 +119,6 @@ func (s *ResizeSuite) TestOriginalColdCache(c *C) {
 	ctx, err := s.insertMockImage()
 	c.Assert(err, IsNil)
 
-	// Bootstrap the db connection
-	ctx.Goat = &goat.Context{
-		Database: g.CloneDB(),
-	}
-
 	// Run the image resize request
 	data, err := fetch.ImageData(storage, ctx)
 	c.Assert(err, IsNil)
@@ -171,9 +127,6 @@ func (s *ResizeSuite) TestOriginalColdCache(c *C) {
 	img, _, err = image.Decode(bytes.NewBuffer(data))
 	c.Assert(err, IsNil)
 	c.Assert(img.Bounds().Size().X, Equals, originalSize)
-
-	// Remember to cleanup
-	ctx.Goat.Close()
 }
 
 func (s *ResizeSuite) TestResizeColdCache(c *C) {
@@ -183,13 +136,9 @@ func (s *ResizeSuite) TestResizeColdCache(c *C) {
 
 	for _, size := range sizes {
 		ctx := &fetch.CacheContext{
-			CacheKey: fetch.GetCacheKey(mockCtx.Bucket, mockCtx.ImageId, size),
-			ImageId:  mockCtx.ImageId,
-			Bucket:   mockCtx.Bucket,
-			Width:    size,
-			Goat: &goat.Context{
-				Database: g.CloneDB(),
-			},
+			ImageId: mockCtx.ImageId,
+			Bucket:  mockCtx.Bucket,
+			Width:   size,
 		}
 
 		// Run the image resize request
@@ -200,16 +149,31 @@ func (s *ResizeSuite) TestResizeColdCache(c *C) {
 		img, _, err := image.Decode(bytes.NewBuffer(data))
 		c.Assert(err, IsNil)
 		c.Assert(img.Bounds().Size().X, Equals, size)
+	}
+}
 
-		// Verify that the resized image was stored in the data store
-		data, _, err = fetch.FindResizedImage(storage, ctx)
+func (s *ResizeSuite) TestResizeCropColdCache(c *C) {
+	// A single, unresized image is in the database/store
+	mockCtx, err := s.insertMockImage()
+	c.Assert(err, IsNil)
+
+	for _, size := range sizes {
+		ctx := &fetch.CacheContext{
+			ImageId: mockCtx.ImageId,
+			Bucket:  mockCtx.Bucket,
+			Width:   size,
+			Crop:    true,
+		}
+
+		// Run the image resize request
+		data, err := fetch.ImageData(storage, ctx)
 		c.Assert(err, IsNil)
 
-		img, _, err = image.Decode(bytes.NewBuffer(data))
+		// Verify the size of the resulting byte slice
+		img, _, err := image.Decode(bytes.NewBuffer(data))
 		c.Assert(err, IsNil)
-		c.Assert(img.Bounds().Size().X, Equals, size)
-
-		// Remember to cleanup
-		ctx.Goat.Close()
+		c.Assert(img.Bounds().Size().X, Equals, img.Bounds().Size().Y)
+		c.Assert(img.Bounds().Size().X > 0, Equals, true)
+		c.Assert(img.Bounds().Size().X <= size, Equals, true)
 	}
 }
