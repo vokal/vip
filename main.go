@@ -106,6 +106,12 @@ func main() {
 			return dest.SetBytes(b)
 		}))
 
+	logwriter, err := syslog.Dial("udp", "app_syslog:514", syslog.LOG_NOTICE, "vip")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	log.SetOutput(logwriter)
+
 	go peers.Listen()
 	go listenHttp()
 
