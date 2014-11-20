@@ -9,6 +9,7 @@ import (
 	"github.com/mitchellh/goamz/s3"
 	"github.com/vokalinteractive/go-loggly"
 	"log"
+	"log/syslog"
 	"net/http"
 	"os"
 	"vip/fetch"
@@ -22,6 +23,7 @@ var (
 	storage   store.ImageStore
 	authToken string
 
+	verbose  *bool   = flag.Bool("verbose", false, "verbose logging")
 	httpport *string = flag.String("httpport", "8080", "target port")
 	secure   *bool   = flag.Bool("secure", false, "use SSL")
 )
@@ -105,12 +107,13 @@ func main() {
 
 			return dest.SetBytes(b)
 		}))
-
-	logwriter, err := syslog.Dial("udp", "app_syslog:514", syslog.LOG_NOTICE, "vip")
-	if err != nil {
-		log.Fatal(err.Error())
+	if !*verbose {
+		logwriter, err := syslog.Dial("udp", "app_syslog:514", syslog.LOG_NOTICE, "vip")
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		log.SetOutput(logwriter)
 	}
-	log.SetOutput(logwriter)
 
 	go peers.Listen()
 	go listenHttp()
