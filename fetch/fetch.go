@@ -14,9 +14,9 @@ import (
 	"vip/store"
 )
 
-var maxWidth = GetMaxWidth()
+var maxWidth = getMaxWidth()
 
-func GetMaxWidth() int {
+func getMaxWidth() int {
 	maxWidth, err := strconv.Atoi(os.Getenv("VIP_MAX_WIDTH"))
 	if err != nil {
 		return 720
