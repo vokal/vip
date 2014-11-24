@@ -7,6 +7,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io/ioutil"
+	"os"
 	"vip/fetch"
 	"vip/test"
 )
@@ -69,6 +70,18 @@ func (s *ResizeSuite) BenchmarkLargeResize(c *C) {
 		_, err := fetch.Resize(buf, ctx)
 		c.Assert(err, IsNil)
 	}
+}
+
+func (s *ResizeSuite) TestGetMaxWidth(c *C) {
+	os.Setenv("VIP_MAX_WIDTH", "500")
+	c.Assert(fetch.GetMaxWidth(), Equals, 500)
+
+	os.Setenv("VIP_MAX_WIDTH", "1024")
+	c.Assert(fetch.GetMaxWidth(), Equals, 1024)
+
+	// Test default value
+	os.Setenv("VIP_MAX_WIDTH", "")
+	c.Assert(fetch.GetMaxWidth(), Equals, 720)
 }
 
 func (s *ResizeSuite) TestResizeImage(c *C) {
