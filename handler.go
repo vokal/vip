@@ -122,7 +122,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Host == "" {
 		uri.Host = os.Getenv("URI_HOSTNAME")
-		if *secure {
+		if key != "" && cert != "" {
 			uri.Scheme = "https"
 		} else {
 			uri.Scheme = "http"
