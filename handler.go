@@ -72,7 +72,7 @@ func handleImageRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gc := fetch.RequestContext(r)
+	gc := fetch.RequestContext(r, maxWidth)
 
 	var data []byte
 	err := cache.Get(gc, gc.CacheKey(), groupcache.AllocatingByteSliceSink(&data))

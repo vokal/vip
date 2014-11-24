@@ -13,13 +13,13 @@ import (
 	"vip/store"
 )
 
-func RequestContext(r *http.Request) *CacheContext {
+func RequestContext(r *http.Request, maxWidth *int) *CacheContext {
 	vars := mux.Vars(r)
 
 	width, _ := strconv.Atoi(r.FormValue("s"))
 
-	if width > 720 {
-		width = 720
+	if width > *maxWidth {
+		width = *maxWidth
 	}
 
 	return &CacheContext{

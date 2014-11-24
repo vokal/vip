@@ -26,6 +26,7 @@ var (
 	verbose  *bool   = flag.Bool("verbose", false, "verbose logging")
 	httpport *string = flag.String("httpport", "8080", "target port")
 	secure   *bool   = flag.Bool("secure", false, "use SSL")
+	maxWidth *int    = flag.Int("max_width", 720, "Max width in pixels")
 )
 
 func listenHttp() {
@@ -93,7 +94,7 @@ func main() {
 	peers = peer.DebugPool()
 
 	peers.SetContext(func(r *http.Request) groupcache.Context {
-		return fetch.RequestContext(r)
+		return fetch.RequestContext(r, maxWidth)
 	})
 
 	cache = groupcache.NewGroup("ImageProxyCache", 64<<20, groupcache.GetterFunc(
