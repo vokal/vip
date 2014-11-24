@@ -30,7 +30,6 @@ var (
 
 	verbose  *bool   = flag.Bool("verbose", false, "verbose logging")
 	httpport *string = flag.String("httpport", "8080", "target port")
-	secure   *bool   = flag.Bool("secure", false, "use TSL")
 	cert     string  = ""
 	key      string  = ""
 )
