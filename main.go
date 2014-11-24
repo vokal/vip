@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/s3"
-	"github.com/vokalinteractive/go-loggly"
+	"io/ioutil"
 	"log"
 	"log/syslog"
 	"net/http"
@@ -15,6 +15,11 @@ import (
 	"vip/fetch"
 	"vip/peer"
 	"vip/store"
+)
+
+const (
+	KeyFilePath  = "/etc/vip/application.key"
+	CertFilePath = "/etc/vip/application.cert"
 )
 
 var (
@@ -25,18 +30,18 @@ var (
 
 	verbose  *bool   = flag.Bool("verbose", false, "verbose logging")
 	httpport *string = flag.String("httpport", "8080", "target port")
-	secure   *bool   = flag.Bool("secure", false, "use SSL")
+	secure   *bool   = flag.Bool("secure", false, "use TSL")
+	cert     string  = ""
+	key      string  = ""
 )
 
 func listenHttp() {
 	log.Printf("Listening on port :%s\n", *httpport)
-	cert := os.Getenv("SSL_CERT")
-	key := os.Getenv("SSL_KEY")
 
 	port := fmt.Sprintf(":%s", *httpport)
 
 	if cert != "" && key != "" {
-		log.Println("Serving via SSL")
+		log.Println("Serving via TSL")
 		if err := http.ListenAndServeTLS(port, cert, key, nil); err != nil {
 			log.Fatalf("Error starting server: %s\n", err.Error())
 		}
@@ -60,14 +65,26 @@ func getRegion() aws.Region {
 	}
 }
 
-func init() {
-	flag.Parse()
+func getFileOrEnv(path, envName string) string {
+	val := ""
 
-	loggly_key := os.Getenv("LOGGLY_KEY")
-	if loggly_key != "" {
-		log.SetOutput(loggly.New(loggly_key, "vip"))
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		val = os.Getenv(envName)
+	} else {
+		b, err := ioutil.ReadFile(path)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		val = string(b[:])
 	}
 
+	return val
+}
+
+func init() {
+	flag.Parse()
+	key = getFileOrEnv(KeyFilePath, "SSL_KEY")
+	cert = getFileOrEnv(CertFilePath, "SSL_CERT")
 	r := mux.NewRouter()
 
 	authToken = os.Getenv("AUTH_TOKEN")
