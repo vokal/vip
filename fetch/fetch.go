@@ -14,9 +14,15 @@ import (
 	"vip/store"
 )
 
-maxWidth, err := strconv.Atoi(os.Getenv("VIP_MAX_WIDTH"))
-if err != nil {
-	maxWidth = 720
+var maxWidth = getMaxWidth()
+
+func getMaxWidth() int {
+	maxWidth, err := strconv.Atoi(os.Getenv("VIP_MAX_WIDTH"))
+	if err != nil {
+		return 720
+	}
+
+	return maxWidth
 }
 
 func RequestContext(r *http.Request) *CacheContext {
