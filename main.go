@@ -65,26 +65,32 @@ func getRegion() aws.Region {
 	}
 }
 
-func getFileOrEnv(path, envName string) string {
+func getFile(path string) (string, error) {
 	val := ""
-
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		val = os.Getenv(envName)
-	} else {
+	if _, err := os.Stat(path); err == nil {
 		b, err := ioutil.ReadFile(path)
 		if err != nil {
-			log.Fatal(err.Error())
+			return val, err
 		}
 		val = string(b[:])
 	}
-
-	return val
+	return val, nil
 }
 
 func init() {
 	flag.Parse()
-	key = getFileOrEnv(KeyFilePath, "SSL_KEY")
-	cert = getFileOrEnv(CertFilePath, "SSL_CERT")
+	var err error
+
+	key, err = getFile(KeyFilePath)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	cert, err = getFile(CertFilePath)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
 	r := mux.NewRouter()
 
 	authToken = os.Getenv("AUTH_TOKEN")
