@@ -3,6 +3,8 @@ MAINTAINER Scott Ferguson <scott.ferguson@vokalinteractive.com>
 
 RUN apt-get update -qq
 RUN apt-get install -y ca-certificates
+RUN mkdir /etc/vip
+
 
 ADD ./vip ./vip
 
