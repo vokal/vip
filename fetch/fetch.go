@@ -8,18 +8,30 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"vip/store"
 )
+
+var maxWidth = getMaxWidth()
+
+func getMaxWidth() int {
+	maxWidth, err := strconv.Atoi(os.Getenv("VIP_MAX_WIDTH"))
+	if err != nil {
+		return 720
+	}
+
+	return maxWidth
+}
 
 func RequestContext(r *http.Request) *CacheContext {
 	vars := mux.Vars(r)
 
 	width, _ := strconv.Atoi(r.FormValue("s"))
 
-	if width > 720 {
-		width = 720
+	if width > maxWidth {
+		width = maxWidth
 	}
 
 	return &CacheContext{
