@@ -32,6 +32,7 @@ var (
 	httpport *string = flag.String("httpport", "8080", "target port")
 	cert     string  = ""
 	key      string  = ""
+	secure   bool    = false
 )
 
 func listenHttp() {
@@ -89,6 +90,8 @@ func init() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+
+	secure = (key != "" && cert != "")
 
 	r := mux.NewRouter()
 
