@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestgetMaxWidth(t *testing.T) {
+func TestGetMaxWidth(t *testing.T) {
 	os.Setenv("VIP_MAX_WIDTH", "500")
 	if width := getMaxWidth(); width != 500 {
 		t.Fail()
