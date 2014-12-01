@@ -12,6 +12,8 @@ script:
     - go build
     - go test -gocheck.v
     - go test -gocheck.v -gocheck.b
+    - cd fetch && go test
+    - cd ..
 publish:
     docker:
         docker_server: docker-build.vokalinteractive.com

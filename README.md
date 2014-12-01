@@ -12,8 +12,7 @@ When images are requested they are placed into an in-memory cache to make repeat
 requests for that image faster.
 
 You can resize an image on the fly by providing an `?s=X` parameter that specifies
-a maximum width for the image. The maximum width that can be provided is 720 pixels.
-For example, if you want to resize an image down to a 160 pixel thumbnail:
+a maximum width for the image. For example, if you want to resize an image down to a 160 pixel thumbnail:
         
         images.example.com/mybucket/5272a0e7d0d9813e21?s=160
 
@@ -22,7 +21,11 @@ Resized images may also be center-cropped by passing `?c=true` in the querystrin
         images.example.com/mybucket/5272a0e7d0d9813e21?s=160&c=true
 
 The thumbnail will then be cached to both `groupcache` and S3. If the image leaves
-the in-memory cache it will not need to be resized again. 
+the in-memory cache it will not need to be resized again.
+
+For performance reasons, `vip` has a configurable maximum width, set via the environment
+variable `VIP_MAX_WIDTH`. You'll want to balance your own app's needs with memory needed to
+cache larger images, though the default max is a reasonable 720 pixels.
 
 Images are uploaded through `vip` to generate the serving URL. Upload requests should
 have the image encoded as the body. `Content-Type` and authentication headers will also
