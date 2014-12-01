@@ -64,11 +64,9 @@ func getRegion() aws.Region {
 
 func init() {
 	flag.Parse()
-	var (
-		err     error
-		hasKey  bool
-		hasCert bool
-	)
+	var err error
+	var hasKey bool
+	var hasCert bool
 
 	_, err = os.Stat(KeyFilePath)
 	if err != nil {
