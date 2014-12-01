@@ -7,7 +7,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/s3"
-	"io/ioutil"
 	"log"
 	"log/syslog"
 	"net/http"
@@ -30,8 +29,8 @@ var (
 
 	verbose  *bool   = flag.Bool("verbose", false, "verbose logging")
 	httpport *string = flag.String("httpport", "8080", "target port")
-	cert     string  = ""
-	key      string  = ""
+	hasKey   bool    = false
+	hasCert  bool    = false
 	secure   bool    = false
 )
 
@@ -40,9 +39,9 @@ func listenHttp() {
 
 	port := fmt.Sprintf(":%s", *httpport)
 
-	if cert != "" && key != "" {
+	if secure {
 		log.Println("Serving via TSL")
-		if err := http.ListenAndServeTLS(port, cert, key, nil); err != nil {
+		if err := http.ListenAndServeTLS(port, CertFilePath, KeyFilePath, nil); err != nil {
 			log.Fatalf("Error starting server: %s\n", err.Error())
 		}
 	} else {
@@ -65,33 +64,23 @@ func getRegion() aws.Region {
 	}
 }
 
-func getFile(path string) (string, error) {
-	val := ""
-	if _, err := os.Stat(path); err == nil {
-		b, err := ioutil.ReadFile(path)
-		if err != nil {
-			return val, err
-		}
-		val = string(b[:])
-	}
-	return val, nil
-}
-
 func init() {
 	flag.Parse()
 	var err error
 
-	key, err = getFile(KeyFilePath)
+	_, err = os.Stat(KeyFilePath)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Printf("no key found at %s\n", KeyFilePath)
+		hasKey = false
 	}
 
-	cert, err = getFile(CertFilePath)
+	_, err = os.Stat(CertFilePath)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Printf("no certificate found at %s\n", CertFilePath)
+		hasCert = false
 	}
 
-	secure = (key != "" && cert != "")
+	secure = hasCert && hasKey
 
 	r := mux.NewRouter()
 
@@ -132,6 +121,7 @@ func main() {
 
 			return dest.SetBytes(b)
 		}))
+
 	if !*verbose {
 		logwriter, err := syslog.Dial("udp", "app_syslog:514", syslog.LOG_NOTICE, "vip")
 		if err != nil {
