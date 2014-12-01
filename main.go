@@ -29,8 +29,6 @@ var (
 
 	verbose  *bool   = flag.Bool("verbose", false, "verbose logging")
 	httpport *string = flag.String("httpport", "8080", "target port")
-	hasKey   bool    = false
-	hasCert  bool    = false
 	secure   bool    = false
 )
 
@@ -66,7 +64,11 @@ func getRegion() aws.Region {
 
 func init() {
 	flag.Parse()
-	var err error
+	var (
+		err     error
+		hasKey  bool
+		hasCert bool
+	)
 
 	_, err = os.Stat(KeyFilePath)
 	if err != nil {
