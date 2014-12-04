@@ -65,8 +65,8 @@ func getRegion() aws.Region {
 func init() {
 	flag.Parse()
 	var err error
-	var hasKey bool
-	var hasCert bool
+	hasKey := true
+	hasCert := true
 	_, err = os.Stat(KeyFilePath)
 	if err != nil {
 		log.Printf("No key found at %s\n", KeyFilePath)
