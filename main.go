@@ -7,7 +7,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/s3"
-	"github.com/vokalinteractive/go-loggly"
 	"log"
 	"log/syslog"
 	"net/http"
@@ -15,6 +14,11 @@ import (
 	"vip/fetch"
 	"vip/peer"
 	"vip/store"
+)
+
+const (
+	KeyFilePath  = "/etc/vip/application.key"
+	CertFilePath = "/etc/vip/application.pem"
 )
 
 var (
@@ -25,19 +29,17 @@ var (
 
 	verbose  *bool   = flag.Bool("verbose", false, "verbose logging")
 	httpport *string = flag.String("httpport", "8080", "target port")
-	secure   *bool   = flag.Bool("secure", false, "use SSL")
+	secure   bool    = false
 )
 
 func listenHttp() {
 	log.Printf("Listening on port :%s\n", *httpport)
-	cert := os.Getenv("SSL_CERT")
-	key := os.Getenv("SSL_KEY")
 
 	port := fmt.Sprintf(":%s", *httpport)
 
-	if cert != "" && key != "" {
-		log.Println("Serving via SSL")
-		if err := http.ListenAndServeTLS(port, cert, key, nil); err != nil {
+	if secure {
+		log.Println("Serving via TSL")
+		if err := http.ListenAndServeTLS(port, CertFilePath, KeyFilePath, nil); err != nil {
 			log.Fatalf("Error starting server: %s\n", err.Error())
 		}
 	} else {
@@ -62,11 +64,22 @@ func getRegion() aws.Region {
 
 func init() {
 	flag.Parse()
-
-	loggly_key := os.Getenv("LOGGLY_KEY")
-	if loggly_key != "" {
-		log.SetOutput(loggly.New(loggly_key, "vip"))
+	var err error
+	var hasKey bool
+	var hasCert bool
+	_, err = os.Stat(KeyFilePath)
+	if err != nil {
+		log.Printf("No key found at %s\n", KeyFilePath)
+		hasKey = false
 	}
+
+	_, err = os.Stat(CertFilePath)
+	if err != nil {
+		log.Printf("No certificate found at %s\n", CertFilePath)
+		hasCert = false
+	}
+
+	secure = hasCert && hasKey
 
 	r := mux.NewRouter()
 
@@ -107,12 +120,15 @@ func main() {
 
 			return dest.SetBytes(b)
 		}))
+
 	if !*verbose {
 		logwriter, err := syslog.Dial("udp", "app_syslog:514", syslog.LOG_NOTICE, "vip")
 		if err != nil {
-			log.Fatal(err.Error())
+			log.Println(err.Error())
+			log.Println("using default logger")
+		} else {
+			log.SetOutput(logwriter)
 		}
-		log.SetOutput(logwriter)
 	}
 
 	go peers.Listen()
