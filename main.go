@@ -18,7 +18,7 @@ import (
 
 const (
 	KeyFilePath  = "/etc/vip/application.key"
-	CertFilePath = "/etc/vip/application.cert"
+	CertFilePath = "/etc/vip/application.pem"
 )
 
 var (
@@ -67,16 +67,15 @@ func init() {
 	var err error
 	var hasKey bool
 	var hasCert bool
-
 	_, err = os.Stat(KeyFilePath)
 	if err != nil {
-		log.Printf("no key found at %s\n", KeyFilePath)
+		log.Printf("No key found at %s\n", KeyFilePath)
 		hasKey = false
 	}
 
 	_, err = os.Stat(CertFilePath)
 	if err != nil {
-		log.Printf("no certificate found at %s\n", CertFilePath)
+		log.Printf("No certificate found at %s\n", CertFilePath)
 		hasCert = false
 	}
 
