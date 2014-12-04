@@ -124,9 +124,11 @@ func main() {
 	if !*verbose {
 		logwriter, err := syslog.Dial("udp", "app_syslog:514", syslog.LOG_NOTICE, "vip")
 		if err != nil {
-			log.Fatal(err.Error())
+			log.Println(err.Error())
+			log.Println("using default logger")
+		} else {
+			log.SetOutput(logwriter)
 		}
-		log.SetOutput(logwriter)
 	}
 
 	go peers.Listen()
