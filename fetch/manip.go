@@ -4,11 +4,43 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/disintegration/imaging"
+	"github.com/rwcarlsen/goexif/exif"
 	"image"
 	"image/jpeg"
 	"image/png"
 	"io"
 )
+
+func needsRotation(src io.Reader) (bool, int) {
+	metadata, err := exif.Decode(src)
+	if err != nil {
+		fmt.Println(err.Error())
+		return false, 0
+	}
+
+	orientation, err := x.Get(exif.Orientation)
+	if err != nil {
+		fmt.Println(err.Error())
+		return false, 0
+	}
+
+	angle := 0
+	rotate := false
+
+	switch orientation.String() {
+	case "6":
+		angle = 90
+		rotate = true
+	case "3":
+		angle = 180
+		rotate = true
+	case "8":
+		angle = 270
+		rotate = true
+	}
+
+	return rotate, angle
+}
 
 func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 	image, format, err := image.Decode(src)
@@ -23,6 +55,17 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 	height := int(float64(image.Bounds().Size().Y) * factor)
 
 	image = imaging.Resize(image, c.Width, height, imaging.Linear)
+
+	if rotate, angle := needsRotation(src); rotate {
+		switch angle {
+		case 90:
+			image = imaging.Rotate90(image)
+		case 180:
+			image = imaging.Rotate180(image)
+		case 270:
+			image = imaging.Rotate270(image)
+		}
+	}
 
 	switch format {
 	case "jpeg":
