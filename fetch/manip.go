@@ -84,6 +84,17 @@ func CenterCrop(src io.Reader, c *CacheContext) (io.Reader, error) {
 		return nil, err
 	}
 
+	if rotate, angle := needsRotation(src); rotate {
+		switch angle {
+		case 90:
+			image = imaging.Rotate90(image)
+		case 180:
+			image = imaging.Rotate180(image)
+		case 270:
+			image = imaging.Rotate270(image)
+		}
+	}
+
 	buf := new(bytes.Buffer)
 
 	height := image.Bounds().Size().Y
