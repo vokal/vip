@@ -39,6 +39,7 @@ func (s *UploadSuite) TestUpload(c *C) {
 	m := mux.NewRouter()
 	m.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
 	f, err := os.Open("./test/awesome.jpeg")
+	c.Assert(err, IsNil)
 
 	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
 	c.Assert(err, IsNil)
