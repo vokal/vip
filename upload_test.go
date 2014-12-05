@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/gorilla/mux"
 	. "gopkg.in/check.v1"
@@ -73,9 +74,7 @@ func (s *UploadSuite) TestEmptyUpload(c *C) {
 	// correctly
 	m := mux.NewRouter()
 	m.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
-	f, err := os.Open("./test/none.jpeg")
-	c.Assert(err, IsNil)
-
+	f := &bytes.Reader{}
 	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
 	c.Assert(err, IsNil)
 
