@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
+	"image"
 	"io"
 	"math/rand"
 	"net/http"
@@ -49,13 +50,13 @@ func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h(w, r)
 }
 
-func fileKey(bucket string) string {
+func fileKey(bucket string, width int, height int) string {
 	seed := rand.New(rand.NewSource(time.Now().UnixNano()))
 	key := fmt.Sprintf("%d-%s-%d", seed.Int63(), bucket, time.Now().UnixNano())
 
 	hash := md5.New()
 	io.WriteString(hash, key)
-	return fmt.Sprintf("%x", hash.Sum(nil))
+	return fmt.Sprintf("%x-%dx%d", hash.Sum(nil), width, height)
 }
 
 func handleImageRequest(w http.ResponseWriter, r *http.Request) {
@@ -104,19 +105,28 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key := fileKey(bucket)
-	err := storage.PutReader(bucket, key, r.Body,
+	data := bytes.Reader(r.Body)
+
+	image, format, err := image.Decode(data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	width := image.Bounds().Size().X
+	height := image.Bounds().Size().Y
+
+	key := fileKey(bucket, width, height)
+
+	data.Seek(0, 0)
+
+	err = storage.PutReader(bucket, key, data,
 		r.ContentLength, r.Header.Get("Content-Type"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer r.Body.Close()
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 
 	uri := r.URL
 
