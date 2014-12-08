@@ -9,6 +9,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"io/ioutil"
 )
 
 func needsRotation(src io.Reader) (bool, int) {
@@ -43,7 +44,13 @@ func needsRotation(src io.Reader) (bool, int) {
 }
 
 func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
-	data := bytes.Reader(src)
+	raw, err := ioutil.ReadAll(src)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
+	}
+
+	data := bytes.NewReader(raw)
 
 	image, format, err := image.Decode(data)
 	if err != nil {
@@ -82,7 +89,13 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 }
 
 func CenterCrop(src io.Reader, c *CacheContext) (io.Reader, error) {
-	data := bytes.Reader(src)
+	raw, err := ioutil.ReadAll(src)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
+	}
+
+	data := bytes.NewReader(raw)
 
 	image, format, err := image.Decode(data)
 	if err != nil {
