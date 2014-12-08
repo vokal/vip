@@ -18,7 +18,7 @@ func needsRotation(src io.Reader) (bool, int) {
 		return false, 0
 	}
 
-	orientation, err := x.Get(exif.Orientation)
+	orientation, err := metadata.Get(exif.Orientation)
 	if err != nil {
 		fmt.Println(err.Error())
 		return false, 0
