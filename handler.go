@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"image"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
