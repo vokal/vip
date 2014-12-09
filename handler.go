@@ -107,6 +107,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	raw, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -114,7 +115,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	data := bytes.NewReader(raw)
 
-	image, format, err := image.Decode(data)
+	image, _, err := image.Decode(data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
