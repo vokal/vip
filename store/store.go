@@ -8,7 +8,7 @@ import (
 
 type ImageStore interface {
 	GetReader(string, string) (io.ReadCloser, error)
-	PutReader(string, string, io.Reader, int64, string) error
+	PutReader(string, string, io.ReadCloser, int64, string) error
 	Put(string, string, []byte, string) error
 	Head(string, string) (*http.Response, error)
 }
@@ -25,7 +25,7 @@ func (s *S3ImageStore) GetReader(bucket, path string) (io.ReadCloser, error) {
 	return s.conn.Bucket(bucket).GetReader(path)
 }
 
-func (s *S3ImageStore) PutReader(bucket, path string, data io.Reader, length int64, content string) error {
+func (s *S3ImageStore) PutReader(bucket, path string, data io.ReadCloser, length int64, content string) error {
 	return s.conn.Bucket(bucket).PutReader(path, data, length, content, s3.BucketOwnerRead)
 }
 
