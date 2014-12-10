@@ -35,7 +35,7 @@ func (s *Store) GetReader(bucket, path string) (io.ReadCloser, error) {
 	return MockCloser{bytes.NewBuffer(data)}, nil
 }
 
-func (s *Store) PutReader(bucket, path string, data io.Reader, length int64, content string) error {
+func (s *Store) PutReader(bucket, path string, data io.ReadCloser, length int64, content string) error {
 	var buf bytes.Buffer
 	buf.ReadFrom(data)
 	s.store[fmt.Sprintf("%s|%s", bucket, path)] = buf.Bytes()
