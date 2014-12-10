@@ -133,9 +133,8 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	key := fileKey(bucket, width, height)
 
 	data.Seek(0, 0)
-	upload := ioutil.NopCloser(data)
 
-	err = storage.PutReader(bucket, key, upload,
+	err = storage.PutReader(bucket, key, data,
 		r.ContentLength, r.Header.Get("Content-Type"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
