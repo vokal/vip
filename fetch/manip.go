@@ -105,7 +105,9 @@ func CenterCrop(src io.Reader, c *CacheContext) (io.Reader, error) {
 		return nil, err
 	}
 
-	data.Seek(0, 0)
+	if _, err := data.Seek(0, 0); err != nil {
+		fmt.Println(err.Error())
+	}
 
 	if rotate, angle := needsRotation(data); rotate {
 		switch angle {
