@@ -65,7 +65,9 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 
 	image = imaging.Resize(image, c.Width, height, imaging.Linear)
 
-	data.Seek(0, 0)
+	if _, err := data.Seek(0, 0); err != nil {
+		fmt.Println(err.Error())
+	}
 
 	if rotate, angle := needsRotation(data); rotate {
 		switch angle {
@@ -80,7 +82,7 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 
 	switch format {
 	case "jpeg":
-		jpeg.Encode(buf, image, nil)
+		err = jpeg.Encode(buf, image, nil)
 	case "png":
 		err = png.Encode(buf, image)
 	}
@@ -131,7 +133,7 @@ func CenterCrop(src io.Reader, c *CacheContext) (io.Reader, error) {
 
 	switch format {
 	case "jpeg":
-		jpeg.Encode(buf, image, nil)
+		err = jpeg.Encode(buf, image, nil)
 	case "png":
 		err = png.Encode(buf, image)
 	}
