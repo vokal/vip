@@ -62,6 +62,7 @@ func (s *UploadSuite) TestUpload(c *C) {
 	c.Assert(uri.Scheme, Equals, "http")
 	c.Assert(uri.Host, Equals, "localhost:8080")
 	c.Assert(uri.Path[1:13], Equals, "samplebucket")
+	c.Assert(uri.Path[len(uri.Path)-9:len(uri.Path)], Equals, "-1024x768")
 	c.Assert(recorder.HeaderMap["Content-Type"][0], Equals, "application/json")
 }
 
