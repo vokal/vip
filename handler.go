@@ -113,7 +113,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	raw, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
+	r.Body.Close()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -140,7 +140,6 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer r.Body.Close()
 
 	uri := r.URL
 
