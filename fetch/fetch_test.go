@@ -34,8 +34,6 @@ func TestNeedsRotation(t *testing.T) {
 
 		rotate, angle := needsRotation(f)
 
-		fmt.Println(rotate, angle)
-
 		switch i {
 		case 6:
 			if angle != 90 && rotate != true {
@@ -70,8 +68,6 @@ func TestNeedsRotationAltFiles(t *testing.T) {
 		}
 
 		rotate, angle := needsRotation(f)
-
-		fmt.Println(rotate, angle)
 
 		switch key {
 		case 1:
