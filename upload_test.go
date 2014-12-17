@@ -38,12 +38,12 @@ func (s *UploadSuite) TestUpload(c *C) {
 	// correctly
 	m := mux.NewRouter()
 	m.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
-	f, err := os.Open("./test/awesome.jpeg")
+	f, err := os.Open("./test/exif_test_img.jpg")
 	c.Assert(err, IsNil)
 
 	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
 	c.Assert(err, IsNil)
-	fstat, err := os.Stat("./test/awesome.jpeg")
+	fstat, err := os.Stat("./test/exif_test_img.jpg")
 	c.Assert(err, IsNil)
 	req.ContentLength = fstat.Size()
 	req.Header.Set("Content-Type", "image/jpeg")
@@ -103,7 +103,7 @@ func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
 	m := mux.NewRouter()
 	m.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
 
-	f, err := os.Open("./test/awesome.jpeg")
+	f, err := os.Open("./test/exif_test_img.jpg")
 	c.Assert(err, IsNil)
 
 	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
@@ -126,12 +126,12 @@ func (s *UploadSuite) TestSetOriginData(c *C) {
 	m := mux.NewRouter()
 	m.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
 
-	f, err := os.Open("./test/awesome.jpeg")
+	f, err := os.Open("./test/exif_test_img.jpg")
 	c.Assert(err, IsNil)
 
 	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
 	c.Assert(err, IsNil)
-	fstat, err := os.Stat("./test/awesome.jpeg")
+	fstat, err := os.Stat("./test/exif_test_img.jpg")
 	c.Assert(err, IsNil)
 	req.ContentLength = fstat.Size()
 	req.Header.Set("Origin", "WHATEVER, MAN")
