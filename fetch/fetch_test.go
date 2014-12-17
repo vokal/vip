@@ -55,5 +55,33 @@ func TestNeedsRotation(t *testing.T) {
 			}
 		}
 	}
+}
 
+func TestNeedsRotationAltFiles(t *testing.T) {
+	filenames := map[int]string{
+		1: "awesome.jpeg",
+		2: "exif_test_img.jpg",
+	}
+
+	for key, filename := range filenames {
+		f, err := os.Open(fmt.Sprintf("../test/%s", filename))
+		if err != nil {
+			t.Errorf("Could not open %s.", filename)
+		}
+
+		rotate, angle := needsRotation(f)
+
+		fmt.Println(rotate, angle)
+
+		switch key {
+		case 1:
+			if angle != 0 && rotate != false {
+				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
+			}
+		case 2:
+			if angle != 90 && rotate != true {
+				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
+			}
+		}
+	}
 }
