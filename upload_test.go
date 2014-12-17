@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strings"
 	"vip/test"
 )
 
@@ -62,7 +63,7 @@ func (s *UploadSuite) TestUpload(c *C) {
 	c.Assert(uri.Scheme, Equals, "http")
 	c.Assert(uri.Host, Equals, "localhost:8080")
 	c.Assert(uri.Path[1:13], Equals, "samplebucket")
-	c.Assert(strings.HasSuffix(ui.Path, "-1024x786"), Equals, true)
+	c.Assert(strings.HasSuffix(uri.Path, "-1024x768"), Equals, true)
 	c.Assert(recorder.HeaderMap["Content-Type"][0], Equals, "application/json")
 }
 
