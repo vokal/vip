@@ -49,7 +49,7 @@ func (s *ResizeSuite) BenchmarkThumbnailResize(c *C) {
 
 	for i := 0; i < c.N; i++ {
 		// Need a new io.Reader on every iteration
-		buf := bytes.NewBuffer(file)
+		buf := bytes.NewReader(file)
 		_, err := fetch.Resize(buf, ctx)
 		c.Assert(err, IsNil)
 	}
@@ -65,7 +65,7 @@ func (s *ResizeSuite) BenchmarkLargeResize(c *C) {
 
 	for i := 0; i < c.N; i++ {
 		// Need a new io.Reader on every iteration
-		buf := bytes.NewBuffer(file)
+		buf := bytes.NewReader(file)
 		_, err := fetch.Resize(buf, ctx)
 		c.Assert(err, IsNil)
 	}
@@ -80,7 +80,7 @@ func (s *ResizeSuite) TestResizeImage(c *C) {
 			Width: size,
 		}
 
-		buf := bytes.NewBuffer(file)
+		buf := bytes.NewReader(file)
 		resized, err := fetch.Resize(buf, ctx)
 		c.Assert(err, IsNil)
 
@@ -110,7 +110,7 @@ func (s *ResizeSuite) TestOriginalColdCache(c *C) {
 	file, err := ioutil.ReadFile("test/AWESOME.jpg")
 	c.Assert(err, IsNil)
 
-	img, _, err := image.Decode(bytes.NewBuffer(file))
+	img, _, err := image.Decode(bytes.NewReader(file))
 	c.Assert(err, IsNil)
 
 	originalSize := img.Bounds().Size().X
@@ -124,7 +124,7 @@ func (s *ResizeSuite) TestOriginalColdCache(c *C) {
 	c.Assert(err, IsNil)
 
 	// Verify the size of the resulting byte slice
-	img, _, err = image.Decode(bytes.NewBuffer(data))
+	img, _, err = image.Decode(bytes.NewReader(data))
 	c.Assert(err, IsNil)
 	c.Assert(img.Bounds().Size().X, Equals, originalSize)
 }
@@ -146,7 +146,7 @@ func (s *ResizeSuite) TestResizeColdCache(c *C) {
 		c.Assert(err, IsNil)
 
 		// Verify the size of the resulting byte slice
-		img, _, err := image.Decode(bytes.NewBuffer(data))
+		img, _, err := image.Decode(bytes.NewReader(data))
 		c.Assert(err, IsNil)
 		c.Assert(img.Bounds().Size().X, Equals, size)
 	}
@@ -170,7 +170,7 @@ func (s *ResizeSuite) TestResizeCropColdCache(c *C) {
 		c.Assert(err, IsNil)
 
 		// Verify the size of the resulting byte slice
-		img, _, err := image.Decode(bytes.NewBuffer(data))
+		img, _, err := image.Decode(bytes.NewReader(data))
 		c.Assert(err, IsNil)
 		c.Assert(img.Bounds().Size().X, Equals, img.Bounds().Size().Y)
 		c.Assert(img.Bounds().Size().X > 0, Equals, true)
