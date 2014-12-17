@@ -113,11 +113,11 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	raw, err := ioutil.ReadAll(r.Body)
-	r.Body.Close()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	r.Body.Close()
 
 	data := bytes.NewReader(raw)
 
