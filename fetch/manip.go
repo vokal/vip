@@ -58,13 +58,6 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 		return nil, err
 	}
 
-	buf := new(bytes.Buffer)
-
-	factor := float64(c.Width) / float64(image.Bounds().Size().X)
-	height := int(float64(image.Bounds().Size().Y) * factor)
-
-	image = imaging.Resize(image, c.Width, height, imaging.Linear)
-
 	if _, err := data.Seek(0, 0); err != nil {
 		fmt.Println(err.Error())
 	}
@@ -79,6 +72,13 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 			image = imaging.Rotate270(image)
 		}
 	}
+
+	factor := float64(c.Width) / float64(image.Bounds().Size().X)
+	height := int(float64(image.Bounds().Size().Y) * factor)
+
+	image = imaging.Resize(image, c.Width, height, imaging.Linear)
+
+	buf := new(bytes.Buffer)
 
 	switch format {
 	case "jpeg":
@@ -120,8 +120,6 @@ func CenterCrop(src io.Reader, c *CacheContext) (io.Reader, error) {
 		}
 	}
 
-	buf := new(bytes.Buffer)
-
 	height := image.Bounds().Size().Y
 	width := image.Bounds().Size().X
 
@@ -132,6 +130,8 @@ func CenterCrop(src io.Reader, c *CacheContext) (io.Reader, error) {
 	} else {
 		image = imaging.CropCenter(image, width, height)
 	}
+
+	buf := new(bytes.Buffer)
 
 	switch format {
 	case "jpeg":
