@@ -15,13 +15,11 @@ import (
 func needsRotation(src io.Reader) (bool, int) {
 	metadata, err := exif.Decode(src)
 	if err != nil {
-		fmt.Println("Error decoding EXIF data: " + err.Error())
 		return false, 0
 	}
 
 	orientation, err := metadata.Get(exif.Orientation)
 	if err != nil {
-		fmt.Println("Error trying to find EXIF orientation: " + err.Error())
 		return false, 0
 	}
 
