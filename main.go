@@ -11,6 +11,7 @@ import (
 	"log/syslog"
 	"net/http"
 	"os"
+	"runtime"
 	"vip/fetch"
 	"vip/peer"
 	"vip/store"
@@ -95,6 +96,8 @@ func init() {
 }
 
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	awsAuth, err := aws.EnvAuth()
 	if err != nil {
 		log.Fatalf(err.Error())
