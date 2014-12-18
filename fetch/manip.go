@@ -46,7 +46,6 @@ func needsRotation(src io.Reader) (bool, int) {
 func getRotatedImage(src io.Reader) (image.Image, string, error) {
 	raw, err := ioutil.ReadAll(src)
 	if err != nil {
-		fmt.Println(err.Error())
 		return nil, "", err
 	}
 
@@ -54,12 +53,11 @@ func getRotatedImage(src io.Reader) (image.Image, string, error) {
 
 	image, format, err := image.Decode(data)
 	if err != nil {
-		fmt.Println(err.Error())
 		return nil, "", err
 	}
 
 	if _, err := data.Seek(0, 0); err != nil {
-		fmt.Println(err.Error())
+		return nil, "", err
 	}
 
 	if rotate, angle := needsRotation(data); rotate {
@@ -78,6 +76,10 @@ func getRotatedImage(src io.Reader) (image.Image, string, error) {
 
 func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 	image, format, err := getRotatedImage(src)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
+	}
 
 	factor := float64(c.Width) / float64(image.Bounds().Size().X)
 	height := int(float64(image.Bounds().Size().Y) * factor)
@@ -97,7 +99,11 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 }
 
 func CenterCrop(src io.Reader, c *CacheContext) (io.Reader, error) {
-	image, format, err := getRotatedImage(src)
+	image, format, err := image.Decode(src)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
+	}
 
 	height := image.Bounds().Size().Y
 	width := image.Bounds().Size().X
