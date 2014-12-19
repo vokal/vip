@@ -2,6 +2,7 @@ package fetch
 
 import (
 	"fmt"
+	"github.com/rwcarlsen/goexif/exif"
 	"os"
 	"testing"
 )
@@ -80,4 +81,26 @@ func TestNeedsRotationAltFiles(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestUpsideDownImage(t *testing.T) {
+	filename := "IMG_0562.JPG"
+
+	f, err := os.Open(fmt.Sprintf("../test/%s", filename))
+	if err != nil {
+		t.Errorf("Could not open %s because %s", filename, err.Error())
+	}
+
+	metadata, err := exif.Decode(f)
+	if err != nil {
+		t.Errorf("Could not decode EXIF data: %s.", err.Error())
+	}
+
+	orientation, err := metadata.Get(exif.Orientation)
+	if err != nil {
+		t.Errorf("Could not read Orientation: %s.", err.Error())
+	}
+
+	t.Logf("The orientation returned is %v", orientation)
+
 }
