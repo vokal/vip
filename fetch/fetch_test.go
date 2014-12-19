@@ -37,16 +37,16 @@ func TestNeedsRotation(t *testing.T) {
 
 		switch i {
 		case 6:
-			if angle != 90 && rotate != true {
-				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
+			if angle != 270 && rotate != true {
+				t.Errorf("Expected true, 270; got %d, %t", rotate, angle)
 			}
 		case 3:
 			if angle != 180 && rotate != true {
 				t.Errorf("Expected true, 180; got %d, %t", rotate, angle)
 			}
 		case 8:
-			if angle != 270 && rotate != true {
-				t.Errorf("Expected true, 270; got %d, %t", rotate, angle)
+			if angle != 90 && rotate != true {
+				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
 			}
 		default:
 			if angle != 0 && rotate != false {
@@ -76,31 +76,9 @@ func TestNeedsRotationAltFiles(t *testing.T) {
 				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
 			}
 		case 2:
-			if angle != 90 && rotate != true {
+			if angle != 270 && rotate != true {
 				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
 			}
 		}
 	}
-}
-
-func TestUpsideDownImage(t *testing.T) {
-	filename := "IMG_0562.JPG"
-
-	f, err := os.Open(fmt.Sprintf("../test/%s", filename))
-	if err != nil {
-		t.Errorf("Could not open %s because %s", filename, err.Error())
-	}
-
-	metadata, err := exif.Decode(f)
-	if err != nil {
-		t.Errorf("Could not decode EXIF data: %s.", err.Error())
-	}
-
-	orientation, err := metadata.Get(exif.Orientation)
-	if err != nil {
-		t.Errorf("Could not read Orientation: %s.", err.Error())
-	}
-
-	t.Logf("The orientation returned is %v", orientation)
-
 }
