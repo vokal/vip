@@ -36,16 +36,16 @@ func TestNeedsRotation(t *testing.T) {
 
 		switch i {
 		case 6:
-			if angle != 90 && rotate != true {
-				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
+			if angle != 270 && rotate != true {
+				t.Errorf("Expected true, 270; got %d, %t", rotate, angle)
 			}
 		case 3:
 			if angle != 180 && rotate != true {
 				t.Errorf("Expected true, 180; got %d, %t", rotate, angle)
 			}
 		case 8:
-			if angle != 270 && rotate != true {
-				t.Errorf("Expected true, 270; got %d, %t", rotate, angle)
+			if angle != 90 && rotate != true {
+				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
 			}
 		default:
 			if angle != 0 && rotate != false {
@@ -75,7 +75,7 @@ func TestNeedsRotationAltFiles(t *testing.T) {
 				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
 			}
 		case 2:
-			if angle != 90 && rotate != true {
+			if angle != 270 && rotate != true {
 				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
 			}
 		}

@@ -28,13 +28,13 @@ func needsRotation(src io.Reader) (bool, int) {
 
 	switch orientation.String() {
 	case "6":
-		angle = 90
+		angle = 270
 		rotate = true
 	case "3":
 		angle = 180
 		rotate = true
 	case "8":
-		angle = 270
+		angle = 90
 		rotate = true
 	}
 
