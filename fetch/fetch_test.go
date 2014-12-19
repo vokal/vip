@@ -2,7 +2,6 @@ package fetch
 
 import (
 	"fmt"
-	"github.com/rwcarlsen/goexif/exif"
 	"os"
 	"testing"
 )
