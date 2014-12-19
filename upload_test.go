@@ -39,12 +39,12 @@ func (s *UploadSuite) TestUpload(c *C) {
 	// correctly
 	m := mux.NewRouter()
 	m.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
-	f, err := os.Open("./test/awesome.jpeg")
+	f, err := os.Open("./test/exif_test_img.jpg")
 	c.Assert(err, IsNil)
 
 	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
 	c.Assert(err, IsNil)
-	fstat, err := os.Stat("./test/awesome.jpeg")
+	fstat, err := os.Stat("./test/exif_test_img.jpg")
 	c.Assert(err, IsNil)
 	req.ContentLength = fstat.Size()
 	req.Header.Set("Content-Type", "image/jpeg")
@@ -63,7 +63,7 @@ func (s *UploadSuite) TestUpload(c *C) {
 	c.Assert(uri.Scheme, Equals, "http")
 	c.Assert(uri.Host, Equals, "localhost:8080")
 	c.Assert(uri.Path[1:13], Equals, "samplebucket")
-	c.Assert(strings.HasSuffix(uri.Path, "-1024x768"), Equals, true)
+	c.Assert(strings.HasSuffix(uri.Path, "-2448x3264"), Equals, true)
 	c.Assert(recorder.HeaderMap["Content-Type"][0], Equals, "application/json")
 }
 
