@@ -41,7 +41,7 @@ func needsRotation(src io.Reader) (bool, int) {
 	return rotate, angle
 }
 
-func getRotatedImage(src io.Reader) (image.Image, string, error) {
+func GetRotatedImage(src io.Reader) (image.Image, string, error) {
 	raw, err := ioutil.ReadAll(src)
 	if err != nil {
 		return nil, "", err
@@ -73,7 +73,7 @@ func getRotatedImage(src io.Reader) (image.Image, string, error) {
 }
 
 func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
-	image, format, err := getRotatedImage(src)
+	image, format, err := image.Decode(src)
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil, err
