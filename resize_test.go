@@ -4,7 +4,7 @@ import (
 	"bytes"
 	. "gopkg.in/check.v1"
 	"image"
-	_ "image/jpeg"
+	"image/jpeg"
 	_ "image/png"
 	"io/ioutil"
 	"vip/fetch"
@@ -126,8 +126,18 @@ func (s *ResizeSuite) insertMockImage() (*fetch.CacheContext, error) {
 		return nil, err
 	}
 
+	data := bytes.NewBuffer(file)
+
+	image, _, err := fetch.GetRotatedImage(data)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+	jpeg.Encode(buf, image, nil)
+
 	// Push the file data into the mock datastore
-	storage.Put("test_bucket", "test_id", file, "image/jpeg")
+	storage.PutReader("test_bucket", "test_id", buf, len(file), "image/jpeg")
 
 	return &fetch.CacheContext{
 		ImageId: "test_id",
