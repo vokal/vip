@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
@@ -115,7 +116,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	mime := r.Header.Get("Content-Type")
 
-	data, key, err := processFile(r.Body, mime)
+	data, key, err := processFile(r.Body, mime, bucket)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -154,11 +155,14 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "pong")
 }
 
-func processFile(src io.Reader, mime string) (out io.Reader, key string, err err) {
+func processFile(src io.Reader, mime string, bucket string) (out io.Reader, key string, err error) {
 	if mime == "image/jpeg" {
 		image, format, err := fetch.GetRotatedImage(src)
 		if err != nil {
 			return nil, "", err
+		}
+		if format != "jpeg" {
+			return nil, "", errors.New("You sent a bad JPEG file.")
 		}
 
 		width := image.Bounds().Size().X
