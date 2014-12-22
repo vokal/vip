@@ -12,33 +12,28 @@ import (
 	"io/ioutil"
 )
 
-func needsRotation(src io.Reader) (bool, int) {
+func needsRotation(src io.Reader) int {
 	metadata, err := exif.Decode(src)
 	if err != nil {
-		return false, 0
+		return 0
 	}
 
 	orientation, err := metadata.Get(exif.Orientation)
 	if err != nil {
-		return false, 0
+		return 0
 	}
-
-	angle := 0
-	rotate := false
 
 	switch orientation.String() {
 	case "6":
-		angle = 270
-		rotate = true
+		return 270
 	case "3":
-		angle = 180
-		rotate = true
+		return 180
 	case "8":
-		angle = 90
-		rotate = true
+		return 90
+	default:
+		return 0
 	}
 
-	return rotate, angle
 }
 
 func GetRotatedImage(src io.Reader) (image.Image, string, error) {
@@ -58,15 +53,14 @@ func GetRotatedImage(src io.Reader) (image.Image, string, error) {
 		return nil, "", err
 	}
 
-	if rotate, angle := needsRotation(data); rotate {
-		switch angle {
-		case 90:
-			image = imaging.Rotate90(image)
-		case 180:
-			image = imaging.Rotate180(image)
-		case 270:
-			image = imaging.Rotate270(image)
-		}
+	angle := needsRotation(data)
+	switch angle {
+	case 90:
+		image = imaging.Rotate90(image)
+	case 180:
+		image = imaging.Rotate180(image)
+	case 270:
+		image = imaging.Rotate270(image)
 	}
 
 	return image, format, nil
