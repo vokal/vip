@@ -76,7 +76,7 @@ func TestNeedsRotationAltFiles(t *testing.T) {
 			}
 		case 2:
 			if angle != 270 {
-				t.Errorf("Expected 2700; got %d", angle)
+				t.Errorf("Expected 270; got %d", angle)
 			}
 		}
 	}
