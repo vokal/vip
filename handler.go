@@ -155,7 +155,7 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "pong")
 }
 
-func processFile(src io.Reader, mime string, bucket string) (out io.Reader, key string, err error) {
+func processFile(src io.Reader, mime string, bucket string) (io.Reader, string, error) {
 	if mime == "image/jpeg" {
 		image, format, err := fetch.GetRotatedImage(src)
 		if err != nil {
