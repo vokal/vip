@@ -32,24 +32,24 @@ func TestNeedsRotation(t *testing.T) {
 			t.Errorf("Could not open %s.", filename)
 		}
 
-		rotate, angle := needsRotation(f)
+		angle := needsRotation(f)
 
 		switch i {
 		case 6:
-			if angle != 270 && rotate != true {
-				t.Errorf("Expected true, 270; got %d, %t", rotate, angle)
+			if angle != 270 {
+				t.Errorf("Expected 270; got %d", angle)
 			}
 		case 3:
-			if angle != 180 && rotate != true {
-				t.Errorf("Expected true, 180; got %d, %t", rotate, angle)
+			if angle != 180 {
+				t.Errorf("Expected 180; got %d", angle)
 			}
 		case 8:
-			if angle != 90 && rotate != true {
-				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
+			if angle != 90 {
+				t.Errorf("Expected 90; got %d", angle)
 			}
 		default:
-			if angle != 0 && rotate != false {
-				t.Errorf("Expected false, 0; got %d, %t", rotate, angle)
+			if angle != 0 {
+				t.Errorf("Expected 0; got %d", angle)
 			}
 		}
 	}
@@ -67,16 +67,16 @@ func TestNeedsRotationAltFiles(t *testing.T) {
 			t.Errorf("Could not open %s.", filename)
 		}
 
-		rotate, angle := needsRotation(f)
+		angle := needsRotation(f)
 
 		switch key {
 		case 1:
-			if angle != 0 && rotate != false {
-				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
+			if angle != 0 {
+				t.Errorf("Expected 0; got %d", angle)
 			}
 		case 2:
-			if angle != 270 && rotate != true {
-				t.Errorf("Expected true, 90; got %d, %t", rotate, angle)
+			if angle != 270 {
+				t.Errorf("Expected 270; got %d", angle)
 			}
 		}
 	}

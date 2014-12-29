@@ -4,7 +4,7 @@ import (
 	"bytes"
 	. "gopkg.in/check.v1"
 	"image"
-	_ "image/jpeg"
+	"image/jpeg"
 	_ "image/png"
 	"io/ioutil"
 	"vip/fetch"
@@ -89,7 +89,14 @@ func (s *ResizeSuite) TestResizeImage(c *C) {
 			Width: width,
 		}
 
-		buf := bytes.NewReader(file)
+		data := bytes.NewBuffer(file)
+
+		orig, _, err := fetch.GetRotatedImage(data)
+		c.Assert(err, IsNil)
+
+		buf := new(bytes.Buffer)
+		jpeg.Encode(buf, orig, nil)
+
 		resized, err := fetch.Resize(buf, ctx)
 		c.Assert(err, IsNil)
 
@@ -126,8 +133,18 @@ func (s *ResizeSuite) insertMockImage() (*fetch.CacheContext, error) {
 		return nil, err
 	}
 
+	data := bytes.NewBuffer(file)
+
+	image, _, err := fetch.GetRotatedImage(data)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+	jpeg.Encode(buf, image, nil)
+
 	// Push the file data into the mock datastore
-	storage.Put("test_bucket", "test_id", file, "image/jpeg")
+	storage.PutReader("test_bucket", "test_id", buf, int64(len(file)), "image/jpeg")
 
 	return &fetch.CacheContext{
 		ImageId: "test_id",
@@ -143,7 +160,9 @@ func (s *ResizeSuite) TestOriginalColdCache(c *C) {
 	img, _, err := image.Decode(bytes.NewReader(file))
 	c.Assert(err, IsNil)
 
-	originalSize := img.Bounds().Size().X
+	// Since this image should be rotated, height should equal
+	// width after it's uploaded.
+	originalSize := img.Bounds().Size().Y
 
 	// A single, unresized image is in the database/store
 	ctx, err := s.insertMockImage()
