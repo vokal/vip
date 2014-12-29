@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
 	"image"
+	"image/jpeg"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -112,27 +114,13 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	raw, err := ioutil.ReadAll(r.Body)
+	mime := r.Header.Get("Content-Type")
+
+	data, key, err := processFile(r.Body, mime, bucket)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
 	r.Body.Close()
-
-	data := bytes.NewReader(raw)
-
-	image, _, err := image.Decode(data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	width := image.Bounds().Size().X
-	height := image.Bounds().Size().Y
-
-	key := fileKey(bucket, width, height)
-
-	data.Seek(0, 0)
 
 	err = storage.PutReader(bucket, key, data,
 		r.ContentLength, r.Header.Get("Content-Type"))
@@ -165,4 +153,48 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 func handlePing(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "pong")
+}
+
+func processFile(src io.Reader, mime string, bucket string) (out io.Reader, key string, err error) {
+	if mime == "image/jpeg" {
+		image, format, err := fetch.GetRotatedImage(src)
+		if err != nil {
+			return nil, "", err
+		}
+		if format != "jpeg" {
+			return nil, "", errors.New("You sent a bad JPEG file.")
+		}
+
+		width := image.Bounds().Size().X
+		height := image.Bounds().Size().Y
+		key := fileKey(bucket, width, height)
+
+		data := new(bytes.Buffer)
+		err = jpeg.Encode(data, image, nil)
+		if err != nil {
+			return nil, "", err
+		}
+
+		return data, key, nil
+
+	} else {
+		raw, err := ioutil.ReadAll(src)
+		if err != nil {
+			return nil, "", err
+		}
+
+		data := bytes.NewReader(raw)
+		image, _, err := image.Decode(data)
+		if err != nil {
+			return nil, "", err
+		}
+
+		width := image.Bounds().Size().X
+		height := image.Bounds().Size().Y
+		key := fileKey(bucket, width, height)
+
+		data.Seek(0, 0)
+
+		return data, key, nil
+	}
 }
