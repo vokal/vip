@@ -204,7 +204,6 @@ func processFile(src io.Reader, mime string, bucket string) (*Uploadable, error)
 
 		data.Seek(0, 0)
 
-		upload := Uploadable{data, key, length}
-		return &upload, nil
+		return &Uploadable{data, key, length}, nil
 	}
 }
