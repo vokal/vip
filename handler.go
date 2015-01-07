@@ -165,10 +165,10 @@ func processFile(src io.Reader, mime string, bucket string) (Uploadable, error) 
 	if mime == "image/jpeg" {
 		image, format, err := fetch.GetRotatedImage(src)
 		if err != nil {
-			return nil, err
+			return Uploadable{}, err
 		}
 		if format != "jpeg" {
-			return nil, errors.New("You sent a bad JPEG file.")
+			return Uploadable{}, errors.New("You sent a bad JPEG file.")
 		}
 
 		width := image.Bounds().Size().X
@@ -176,10 +176,10 @@ func processFile(src io.Reader, mime string, bucket string) (Uploadable, error) 
 		key := fileKey(bucket, width, height)
 
 		data := new(bytes.Buffer)
-		length := data.Len()
+		length := int64(data.Len())
 		err = jpeg.Encode(data, image, nil)
 		if err != nil {
-			return nil, err
+			return Uploadable{}, err
 		}
 
 		upload := Uploadable{data, key, length}
@@ -188,14 +188,14 @@ func processFile(src io.Reader, mime string, bucket string) (Uploadable, error) 
 	} else {
 		raw, err := ioutil.ReadAll(src)
 		if err != nil {
-			return nil, err
+			return Uploadable{}, err
 		}
 
 		data := bytes.NewReader(raw)
-		length := data.Len()
+		length := int64(data.Len())
 		image, _, err := image.Decode(data)
 		if err != nil {
-			return nil, err
+			return Uploadable{}, err
 		}
 
 		width := image.Bounds().Size().X
