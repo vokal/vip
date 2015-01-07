@@ -162,7 +162,7 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 }
 
 func processFile(src io.Reader, mime string, bucket string) (*Uploadable, error) {
-	if mime == "image/jpeg" {
+	if mime == "image/jpeg" || mime == "image/jpg" {
 		image, format, err := fetch.GetRotatedImage(src)
 		if err != nil {
 			return nil, err
