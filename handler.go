@@ -27,6 +27,12 @@ type ErrorResponse struct {
 	Msg string `json:"error"`
 }
 
+type Uploadable struct {
+	Data   io.Reader
+	Key    string
+	Length int64
+}
+
 type verifyAuth func(http.ResponseWriter, *http.Request)
 
 func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -116,14 +122,14 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	mime := r.Header.Get("Content-Type")
 
-	data, key, err := processFile(r.Body, mime, bucket)
+	data, err := processFile(r.Body, mime, bucket)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	r.Body.Close()
 
-	err = storage.PutReader(bucket, key, data,
-		r.ContentLength, r.Header.Get("Content-Type"))
+	err = storage.PutReader(bucket, data.Key, data.Data,
+		data.Length, r.Header.Get("Content-Type"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -140,7 +146,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	uri.Path = fmt.Sprintf("%s/%s", bucket, key)
+	uri.Path = fmt.Sprintf("%s/%s", bucket, data.Key)
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -155,14 +161,14 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "pong")
 }
 
-func processFile(src io.Reader, mime string, bucket string) (out io.Reader, key string, err error) {
-	if mime == "image/jpeg" {
+func processFile(src io.Reader, mime string, bucket string) (*Uploadable, error) {
+	if mime == "image/jpeg" || mime == "image/jpg" {
 		image, format, err := fetch.GetRotatedImage(src)
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
 		if format != "jpeg" {
-			return nil, "", errors.New("You sent a bad JPEG file.")
+			return nil, errors.New("You sent a bad JPEG file.")
 		}
 
 		width := image.Bounds().Size().X
@@ -170,23 +176,26 @@ func processFile(src io.Reader, mime string, bucket string) (out io.Reader, key 
 		key := fileKey(bucket, width, height)
 
 		data := new(bytes.Buffer)
+		length := int64(data.Len())
 		err = jpeg.Encode(data, image, nil)
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
 
-		return data, key, nil
+		upload := Uploadable{data, key, length}
+		return &upload, nil
 
 	} else {
 		raw, err := ioutil.ReadAll(src)
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
 
 		data := bytes.NewReader(raw)
+		length := int64(data.Len())
 		image, _, err := image.Decode(data)
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
 
 		width := image.Bounds().Size().X
@@ -195,6 +204,7 @@ func processFile(src io.Reader, mime string, bucket string) (out io.Reader, key 
 
 		data.Seek(0, 0)
 
-		return data, key, nil
+		upload := Uploadable{data, key, length}
+		return &upload, nil
 	}
 }
