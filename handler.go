@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golang/groupcache"
-	"github.com/gorilla/mux"
 	"image"
 	"image/jpeg"
 	"io"
@@ -17,6 +15,9 @@ import (
 	"os"
 	"time"
 	"vip/fetch"
+
+	"github.com/golang/groupcache"
+	"github.com/gorilla/mux"
 )
 
 type UploadResponse struct {
@@ -176,14 +177,13 @@ func processFile(src io.Reader, mime string, bucket string) (*Uploadable, error)
 		key := fileKey(bucket, width, height)
 
 		data := new(bytes.Buffer)
-		length := int64(data.Len())
 		err = jpeg.Encode(data, image, nil)
 		if err != nil {
 			return nil, err
 		}
+		length := int64(data.Len())
 
-		upload := Uploadable{data, key, length}
-		return &upload, nil
+		return &Uploadable{data, key, length}, nil
 
 	} else {
 		raw, err := ioutil.ReadAll(src)

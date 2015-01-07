@@ -1,9 +1,10 @@
 package store
 
 import (
-	"github.com/mitchellh/goamz/s3"
 	"io"
 	"net/http"
+
+	"github.com/mitchellh/goamz/s3"
 )
 
 type ImageStore interface {
