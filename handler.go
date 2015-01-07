@@ -30,7 +30,7 @@ type ErrorResponse struct {
 type Uploadable struct {
 	Data   io.Reader
 	Key    string
-	length int64
+	Length int64
 }
 
 type verifyAuth func(http.ResponseWriter, *http.Request)
@@ -129,7 +129,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 
 	err = storage.PutReader(bucket, data.Key, data.Data,
-		data.length, r.Header.Get("Content-Type"))
+		data.Length, r.Header.Get("Content-Type"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
