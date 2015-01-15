@@ -12,7 +12,7 @@ script:
     - go build
     - go test -gocheck.v
     - go test -gocheck.v -gocheck.b
-    - cd fetch && go test
+    - cd fetch && go test -v
     - cd ..
 publish:
     docker:

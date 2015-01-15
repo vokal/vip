@@ -4,15 +4,20 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/golang/groupcache"
-	"github.com/gorilla/mux"
+	"image"
+	"image/jpeg"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
 	"time"
 	"vip/fetch"
+
+	"github.com/golang/groupcache"
+	"github.com/gorilla/mux"
 )
 
 type UploadResponse struct {
@@ -21,6 +26,12 @@ type UploadResponse struct {
 
 type ErrorResponse struct {
 	Msg string `json:"error"`
+}
+
+type Uploadable struct {
+	Data   io.Reader
+	Key    string
+	Length int64
 }
 
 type verifyAuth func(http.ResponseWriter, *http.Request)
@@ -49,13 +60,13 @@ func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h(w, r)
 }
 
-func fileKey(bucket string) string {
+func fileKey(bucket string, width int, height int) string {
 	seed := rand.New(rand.NewSource(time.Now().UnixNano()))
 	key := fmt.Sprintf("%d-%s-%d", seed.Int63(), bucket, time.Now().UnixNano())
 
 	hash := md5.New()
 	io.WriteString(hash, key)
-	return fmt.Sprintf("%x", hash.Sum(nil))
+	return fmt.Sprintf("%x-%dx%d", hash.Sum(nil), width, height)
 }
 
 func handleImageRequest(w http.ResponseWriter, r *http.Request) {
@@ -110,15 +121,16 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key := fileKey(bucket)
-	err := storage.PutReader(bucket, key, r.Body,
-		r.ContentLength, r.Header.Get("Content-Type"))
+	mime := r.Header.Get("Content-Type")
+
+	data, err := processFile(r.Body, mime, bucket)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
-	defer r.Body.Close()
+	r.Body.Close()
 
+	err = storage.PutReader(bucket, data.Key, data.Data,
+		data.Length, r.Header.Get("Content-Type"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -135,7 +147,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	uri.Path = fmt.Sprintf("%s/%s", bucket, key)
+	uri.Path = fmt.Sprintf("%s/%s", bucket, data.Key)
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -148,4 +160,51 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 func handlePing(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "pong")
+}
+
+func processFile(src io.Reader, mime string, bucket string) (*Uploadable, error) {
+	if mime == "image/jpeg" || mime == "image/jpg" {
+		image, format, err := fetch.GetRotatedImage(src)
+		if err != nil {
+			return nil, err
+		}
+		if format != "jpeg" {
+			return nil, errors.New("You sent a bad JPEG file.")
+		}
+
+		width := image.Bounds().Size().X
+		height := image.Bounds().Size().Y
+		key := fileKey(bucket, width, height)
+
+		data := new(bytes.Buffer)
+		err = jpeg.Encode(data, image, nil)
+		if err != nil {
+			return nil, err
+		}
+		length := int64(data.Len())
+
+		return &Uploadable{data, key, length}, nil
+
+	} else {
+		raw, err := ioutil.ReadAll(src)
+		if err != nil {
+			return nil, err
+		}
+
+		data := bytes.NewReader(raw)
+		length := int64(data.Len())
+		image, _, err := image.Decode(data)
+		if err != nil {
+			return nil, err
+		}
+
+		width := image.Bounds().Size().X
+		height := image.Bounds().Size().Y
+		key := fileKey(bucket, width, height)
+
+		data.Seek(0, 0)
+
+		upload := Uploadable{data, key, length}
+		return &upload, nil
+	}
 }
