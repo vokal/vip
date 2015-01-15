@@ -39,7 +39,7 @@ func listenHttp() {
 	port := fmt.Sprintf(":%s", *httpport)
 
 	if secure {
-		log.Println("Serving via TSL")
+		log.Println("Serving via TLS")
 		if err := http.ListenAndServeTLS(port, CertFilePath, KeyFilePath, nil); err != nil {
 			log.Fatalf("Error starting server: %s\n", err.Error())
 		}
