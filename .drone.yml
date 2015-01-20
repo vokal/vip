@@ -16,21 +16,21 @@ script:
     - cd ..
 publish:
     docker:
-        docker_server: docker-build.vokalinteractive.com
-        docker_host: tcp://docker-build.vokalinteractive.com:2375
+        docker_server: docker-build.vokal.io
+        docker_host: tcp://docker-build.vokal.io:2375
         docker_port: 2375
-        docker_version: 1.3.0
-        registry_login_url: https://docker.vokalinteractive.com/v1/
+        docker_version: 1.4.1
+        registry_login_url: https://docker.vokal.io/v1/
         registry_login: true
         username: $$dockerUsername
         password: $$dockerPassword
         email: docker@vokalinteractive.com
-        image_name: docker.vokalinteractive.com/vip
+        image_name: docker.vokal.io/vip
         tags: [latest]
         push_latest: true
 notify:
     webhook:
         urls:
-            - https://dronebot.vokalinteractive.com/hook
+            - https://dronebot.vokal.io/hook
         on_success: true
         on_failure: true
