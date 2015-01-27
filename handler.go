@@ -13,9 +13,9 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 	"vip/fetch"
-	"strconv"
 
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
