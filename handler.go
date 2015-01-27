@@ -15,6 +15,7 @@ import (
 	"os"
 	"time"
 	"vip/fetch"
+	"strconv"
 
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
@@ -150,6 +151,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	uri.Path = fmt.Sprintf("%s/%s", bucket, data.Key)
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", strconv.FormatInt(data.Length, 10))
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(UploadResponse{
