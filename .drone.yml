@@ -11,7 +11,7 @@ script:
     - go get -t
     - go build
     - go test -gocheck.v
-    - go test -gocheck.v -gocheck.b -cover
+    - go test -gocheck.v -gocheck.b -coverprofile=coverage.txt -covermode=count
     - cd fetch && go test -v
     - cd ..
     - sudo pip install codecov
