@@ -3,8 +3,6 @@ package fetch
 import (
 	"bytes"
 	"errors"
-	"github.com/golang/groupcache"
-	"github.com/gorilla/mux"
 	"io"
 	"log"
 	"net/http"
@@ -12,6 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"vip/store"
+
+	"github.com/golang/groupcache"
+	"github.com/gorilla/mux"
 )
 
 var maxWidth = getMaxWidth()
