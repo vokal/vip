@@ -3,13 +3,15 @@ package fetch
 import (
 	"bytes"
 	"fmt"
-	"github.com/disintegration/imaging"
-	"github.com/rwcarlsen/goexif/exif"
 	"image"
 	"image/jpeg"
 	"image/png"
 	"io"
 	"io/ioutil"
+
+	"github.com/daddye/vips"
+	"github.com/disintegration/imaging"
+	"github.com/rwcarlsen/goexif/exif"
 )
 
 func needsRotation(src io.Reader) int {
@@ -67,27 +69,36 @@ func GetRotatedImage(src io.Reader) (image.Image, string, error) {
 }
 
 func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
-	image, format, err := image.Decode(src)
+	raw, err := ioutil.ReadAll(src)
+	if err != nil {
+		return nil, err
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(raw))
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil, err
 	}
 
-	factor := float64(c.Width) / float64(image.Bounds().Size().X)
-	height := int(float64(image.Bounds().Size().Y) * factor)
+	factor := float64(c.Width) / float64(img.Bounds().Size().X)
+	height := int(float64(img.Bounds().Size().Y) * factor)
 
-	image = imaging.Resize(image, c.Width, height, imaging.Linear)
-
-	buf := new(bytes.Buffer)
-
-	switch format {
-	case "jpeg":
-		err = jpeg.Encode(buf, image, nil)
-	case "png":
-		err = png.Encode(buf, image)
+	options := vips.Options{
+		Width:        c.Width,
+		Height:       height,
+		Crop:         false,
+		Extend:       vips.EXTEND_WHITE,
+		Interpolator: vips.BILINEAR,
+		Gravity:      vips.CENTRE,
+		Quality:      95,
 	}
 
-	return buf, err
+	res, err := vips.Resize(raw, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.NewBuffer(res), err
 }
 
 func CenterCrop(src io.Reader, c *CacheContext) (io.Reader, error) {

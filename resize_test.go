@@ -2,13 +2,14 @@ package main
 
 import (
 	"bytes"
-	. "gopkg.in/check.v1"
 	"image"
 	"image/jpeg"
 	_ "image/png"
 	"io/ioutil"
 	"vip/fetch"
 	"vip/test"
+
+	. "gopkg.in/check.v1"
 )
 
 var (
