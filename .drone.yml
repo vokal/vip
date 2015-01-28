@@ -6,14 +6,17 @@ script:
     - cd .. && mv vip /var/cache/drone/src
     - cd /var/cache/drone/src/vip
     - sudo apt-get update -qq
-    - sudo apt-get -y install bzr mercurial
+    - sudo apt-get -y install bzr mercurial python-pip
     - go get
     - go get -t
     - go build
     - go test -gocheck.v
-    - go test -gocheck.v -gocheck.b
-    - cd fetch && go test -v
+    - go test -gocheck.v -gocheck.b -coverprofile=coverage.txt -covermode=count
+    - cd fetch && go test -v -coverprofile=coverage.txt -covermode=count
     - cd ..
+    - cat fetch/coverage.txt >> coverage.txt
+    - sudo pip install codecov
+    - codecov --token=$$codecovToken
 publish:
     docker:
         docker_server: docker-build.vokal.io
@@ -24,7 +27,7 @@ publish:
         registry_login: true
         username: $$dockerUsername
         password: $$dockerPassword
-        email: docker@vokalinteractive.com
+        email: docker@vokal.io
         image_name: docker.vokal.io/vip
         tags: [latest]
         push_latest: true
