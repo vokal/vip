@@ -54,7 +54,8 @@ func (s *ContentLengthSuite) TestContentLengthJpg(c *C) {
 	err = jpeg.Encode(data, image, nil)
 	c.Assert(err, IsNil)
 	length := int64(data.Len())
-	c.Assert(strconv.FormatInt(length, 10), Equals, "655872")
+	c.Assert(strconv.FormatInt(fstat.Size(), 10), Equals, "1593260") //content length
+	c.Assert(strconv.FormatInt(length, 10), Equals, "655872")        //after rotation
 }
 
 //Check Content-Length of PNG File
@@ -81,5 +82,5 @@ func (s *ContentLengthSuite) TestContentLengthPng(c *C) {
 	data := bytes.NewReader(raw)
 	length := int64(data.Len())
 	c.Assert(err, IsNil)
-	c.Assert(strconv.FormatInt(length, 10), Equals, "305197")
+	c.Assert(strconv.FormatInt(length, 10), Equals, strconv.FormatInt(fstat.Size(), 10))
 }
