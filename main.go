@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/bradfitz/http2"
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/goamz/aws"
@@ -40,7 +41,9 @@ func listenHttp() {
 
 	if secure {
 		log.Println("Serving via TLS")
-		if err := http.ListenAndServeTLS(port, CertFilePath, KeyFilePath, nil); err != nil {
+		server := &http.Server{Addr: port, Handler: nil}
+		http2.ConfigureServer(server, nil)
+		if err := server.ListenAndServeTLS(CertFilePath, KeyFilePath); err != nil {
 			log.Fatalf("Error starting server: %s\n", err.Error())
 		}
 	} else {
@@ -83,7 +86,6 @@ func init() {
 	secure = hasCert && hasKey
 
 	r := mux.NewRouter()
-
 	authToken = os.Getenv("AUTH_TOKEN")
 	if authToken == "" {
 		log.Println("No AUTH_TOKEN parameter provided, uploads are insecure")
