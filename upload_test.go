@@ -142,3 +142,43 @@ func (s *UploadSuite) TestSetOriginData(c *C) {
 	m.ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, Equals, http.StatusCreated)
 }
+
+//Check Content-Length of JPG File
+func (s *UploadSuite) TestContentLengthJpg(c *C) {
+	f, err := os.Open("./test/exif_test_img.jpg")
+	c.Assert(err, IsNil)
+
+	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
+	c.Assert(err, IsNil)
+	fstat, err := os.Stat("./test/exif_test_img.jpg")
+	c.Assert(err, IsNil)
+	req.ContentLength = fstat.Size()
+	req.Header.Set("Content-Type", "image/jpeg")
+
+	vars := mux.Vars(req)
+	bucket := vars["bucket_id"]
+	mime := req.Header.Get("Content-Type")
+	data, err := processFile(req.Body, mime, bucket)
+	c.Assert(err, IsNil)
+	c.Assert(data.Length, Not(Equals), fstat.Size())
+}
+
+//Check Content-Length of PNG File
+func (s *UploadSuite) TestContentLengthPng(c *C) {
+	f, err := os.Open("./test/test_inspiration.png")
+	c.Assert(err, IsNil)
+
+	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
+	c.Assert(err, IsNil)
+	fstat, err := os.Stat("./test/test_inspiration.png")
+	c.Assert(err, IsNil)
+	req.ContentLength = fstat.Size()
+	req.Header.Set("Content-Type", "image/png")
+
+	vars := mux.Vars(req)
+	bucket := vars["bucket_id"]
+	mime := req.Header.Get("Content-Type")
+	data, err := processFile(req.Body, mime, bucket)
+	c.Assert(err, IsNil)
+	c.Assert(data.Length, Equals, fstat.Size())
+}
