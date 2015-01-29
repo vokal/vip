@@ -142,3 +142,29 @@ func (s *UploadSuite) TestSetOriginData(c *C) {
 	m.ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, Equals, http.StatusCreated)
 }
+
+//Check Content-Length of JPG File
+func (s *UploadSuite) TestContentLengthJpg(c *C) {
+	f, err := os.Open("./test/exif_test_img.jpg")
+	c.Assert(err, IsNil)
+
+	fstat, err := os.Stat("./test/exif_test_img.jpg")
+	c.Assert(err, IsNil)
+
+	data, err := processFile(f, "image/jpeg", "")
+	c.Assert(err, IsNil)
+	c.Assert(data.Length, Not(Equals), fstat.Size())
+}
+
+//Check Content-Length of PNG File
+func (s *UploadSuite) TestContentLengthPng(c *C) {
+	f, err := os.Open("./test/test_inspiration.png")
+	c.Assert(err, IsNil)
+
+	fstat, err := os.Stat("./test/test_inspiration.png")
+	c.Assert(err, IsNil)
+
+	data, err := processFile(f, "image/png", "")
+	c.Assert(err, IsNil)
+	c.Assert(data.Length, Equals, fstat.Size())
+}
