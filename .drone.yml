@@ -7,7 +7,7 @@ script:
     - cd /var/cache/drone/src/vip
     - sudo apt-get update -qq
     - sudo apt-get -y install bzr mercurial python-pip
-    - sudo apt-get install automake build-essential git gobject-introspection libglib2.0-dev libjpeg-turbo8-dev libpng12-dev gtk-doc-tools
+    - sudo apt-get -y install automake build-essential git gobject-introspection libglib2.0-dev libjpeg-turbo8-dev libpng12-dev gtk-doc-tools
     - git clone https://github.com/jcupitt/libvips.git
     - cd libvips
     - ./bootstrap.sh
