@@ -3,7 +3,7 @@ MAINTAINER Scott Ferguson <scott.ferguson@vokalinteractive.com>
 
 RUN apt-get update -qq
 RUN apt-get install -y ca-certificates libvips37 \
-    && apt-get install automake build-essential git gobject-introspection libglib2.0-dev libjpeg-turbo8-dev libpng12-dev gtk-doc-tools \
+    && apt-get -y install automake build-essential git gobject-introspection libglib2.0-dev libjpeg-turbo8-dev libpng12-dev gtk-doc-tools \
     && git clone https://github.com/jcupitt/libvips.git \
     && cd libvips \
     && ./bootstrap.sh \
