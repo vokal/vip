@@ -90,7 +90,7 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 		Extend:       vips.EXTEND_WHITE,
 		Interpolator: vips.BILINEAR,
 		Gravity:      vips.CENTRE,
-		Quality:      95,
+		Quality:      80,
 	}
 
 	res, err := vips.Resize(raw, options)
