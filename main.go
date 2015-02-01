@@ -15,8 +15,8 @@ import (
 	"runtime"
 	"vip/fetch"
 	"vip/peer"
+	"vip/q"
 	"vip/store"
-	"vip/workerqueue"
 )
 
 const (
@@ -32,7 +32,7 @@ var (
 	verbose   *bool   = flag.Bool("verbose", false, "verbose logging")
 	httpport  *string = flag.String("httpport", "8080", "target port")
 	secure    bool    = false
-	Queue     workerqueue.Queue
+	Queue     q.Queue
 )
 
 func listenHttp() {
@@ -85,7 +85,7 @@ func init() {
 	}
 
 	secure = hasCert && hasKey
-	Queue = workerqueue.MakeQueue(100)
+	Queue = q.MakeQueue(100)
 
 	r := mux.NewRouter()
 	authToken = os.Getenv("AUTH_TOKEN")

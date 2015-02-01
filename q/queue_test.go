@@ -1,4 +1,4 @@
-package workerqueue
+package q
 
 import (
 	"math/rand"
