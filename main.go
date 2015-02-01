@@ -16,6 +16,7 @@ import (
 	"vip/fetch"
 	"vip/peer"
 	"vip/store"
+	"vip/workerqueue"
 )
 
 const (
@@ -28,10 +29,10 @@ var (
 	peers     peer.CachePool
 	storage   store.ImageStore
 	authToken string
-
-	verbose  *bool   = flag.Bool("verbose", false, "verbose logging")
-	httpport *string = flag.String("httpport", "8080", "target port")
-	secure   bool    = false
+	verbose   *bool   = flag.Bool("verbose", false, "verbose logging")
+	httpport  *string = flag.String("httpport", "8080", "target port")
+	secure    bool    = false
+	Queue     workerqueue.Queue
 )
 
 func listenHttp() {
@@ -84,6 +85,7 @@ func init() {
 	}
 
 	secure = hasCert && hasKey
+	Queue = workerqueue.MakeQueue(100)
 
 	r := mux.NewRouter()
 	authToken = os.Getenv("AUTH_TOKEN")
@@ -138,7 +140,7 @@ func main() {
 
 	go peers.Listen()
 	go listenHttp()
-
+	go Queue.Start(4)
 	log.Println("Cache listening on port :" + peers.Port())
 	s := &http.Server{
 		Addr:    ":" + peers.Port(),

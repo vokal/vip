@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/golang/groupcache"
+	"github.com/gorilla/mux"
 	"image"
 	"image/jpeg"
 	"io"
@@ -15,9 +17,7 @@ import (
 	"os"
 	"time"
 	"vip/fetch"
-
-	"github.com/golang/groupcache"
-	"github.com/gorilla/mux"
+	"vip/store"
 )
 
 type UploadResponse struct {
@@ -34,7 +34,20 @@ type Uploadable struct {
 	Length int64
 }
 
+type RequestWarmup struct {
+	context fetch.CacheContext
+	storage store.ImageStore
+	dest    groupcache.Sink
+}
+
 type verifyAuth func(http.ResponseWriter, *http.Request)
+
+func (j *RequestWarmup) Run() {
+	b, err := fetch.ImageData(j.storage, j.context)
+	if err != nil {
+		j.dest.SetBytes(b)
+	}
+}
 
 func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Enable cross-origin requests
@@ -84,6 +97,18 @@ func handleImageRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gc := fetch.RequestContext(r)
+
+	if r.Header.Get("X-Vip-Warmup") != "" {
+		var data []byte
+		j := &RequestWarmup{
+			context: *gc,
+			storage: storage,
+			dest:    groupcache.AllocatingByteSliceSink(&data),
+		}
+		Queue.AddJob(j)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	var data []byte
 	err := cache.Get(gc, gc.CacheKey(), groupcache.AllocatingByteSliceSink(&data))
