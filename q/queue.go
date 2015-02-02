@@ -1,5 +1,9 @@
 package q
 
+import (
+	"runtime"
+)
+
 type Job interface {
 	Run()
 }
@@ -60,4 +64,8 @@ func (q *Queue) Start(n int) {
 			}
 		}
 	}
+}
+
+func init() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 }
