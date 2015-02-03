@@ -85,7 +85,7 @@ func init() {
 	}
 
 	secure = hasCert && hasKey
-	Queue = q.MakeQueue(100)
+	Queue = q.New(100)
 
 	r := mux.NewRouter()
 	authToken = os.Getenv("AUTH_TOKEN")
@@ -94,6 +94,7 @@ func init() {
 	}
 
 	r.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
+	r.HandleFunc("/{bucket_id}/{image_id}/warmup", handleWarmup)
 	r.HandleFunc("/{bucket_id}/{image_id}", handleImageRequest)
 	r.HandleFunc("/ping", handlePing)
 	http.Handle("/", r)
