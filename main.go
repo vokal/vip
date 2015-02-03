@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"vip/fetch"
 	"vip/peer"
+	"vip/q"
 	"vip/store"
 
 	"github.com/bradfitz/http2"
@@ -29,10 +30,10 @@ var (
 	peers     peer.CachePool
 	storage   store.ImageStore
 	authToken string
-
-	verbose  *bool   = flag.Bool("verbose", false, "verbose logging")
-	httpport *string = flag.String("httpport", "8080", "target port")
-	secure   bool    = false
+	verbose   *bool   = flag.Bool("verbose", false, "verbose logging")
+	httpport  *string = flag.String("httpport", "8080", "target port")
+	secure    bool    = false
+	Queue     q.Queue
 )
 
 func listenHttp() {
@@ -89,6 +90,7 @@ func init() {
 	}
 
 	secure = hasCert && hasKey
+	Queue = q.New(100)
 
 	r := mux.NewRouter()
 	authToken = os.Getenv("AUTH_TOKEN")
@@ -97,6 +99,7 @@ func init() {
 	}
 
 	r.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
+	r.HandleFunc("/{bucket_id}/{image_id}/warmup", handleWarmup)
 	r.HandleFunc("/{bucket_id}/{image_id}", handleImageRequest)
 	r.HandleFunc("/ping", handlePing)
 	http.Handle("/", r)
@@ -143,7 +146,7 @@ func main() {
 
 	go peers.Listen()
 	go listenHttp()
-
+	go Queue.Start(4)
 	log.Println("Cache listening on port :" + peers.Port())
 	s := &http.Server{
 		Addr:    ":" + peers.Port(),

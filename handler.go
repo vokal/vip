@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/golang/groupcache"
+	"github.com/gorilla/mux"
 	"image"
 	"image/jpeg"
 	"io"
@@ -13,11 +15,9 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 	"vip/fetch"
-
-	"github.com/golang/groupcache"
-	"github.com/gorilla/mux"
 )
 
 type UploadResponse struct {
@@ -34,7 +34,14 @@ type Uploadable struct {
 	Length int64
 }
 
+type WarmupRequest string
+
 type verifyAuth func(http.ResponseWriter, *http.Request)
+
+func (j *WarmupRequest) Run() {
+	resp, _ := http.Get(string(*j))
+	defer resp.Body.Close()
+}
 
 func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Enable cross-origin requests
@@ -67,6 +74,26 @@ func fileKey(bucket string, width int, height int) string {
 	hash := md5.New()
 	io.WriteString(hash, key)
 	return fmt.Sprintf("%x-%dx%d", hash.Sum(nil), width, height)
+}
+
+func makeWarmupRequest(path, query string) WarmupRequest {
+	var port string
+	if secure {
+		port = "443"
+	} else {
+		port = "8080"
+	}
+	return WarmupRequest(fmt.Sprintf("localhost:%s%s?%s", port, path, query))
+}
+
+func handleWarmup(w http.ResponseWriter, r *http.Request) {
+
+	path := strings.Replace(r.URL.Path, "warmup/", "", 1)
+	for _, v := range r.Header["X-Vip-Warmup"] {
+		job := makeWarmupRequest(path, v)
+		Queue.Push(&job)
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func handleImageRequest(w http.ResponseWriter, r *http.Request) {
@@ -127,6 +154,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+
 	r.Body.Close()
 
 	err = storage.PutReader(bucket, data.Key, data.Data,
@@ -155,6 +183,11 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(UploadResponse{
 		Url: uri.String(),
 	})
+
+	for _, v := range r.Header["X-Vip-Warmup"] {
+		job := makeWarmupRequest(uri.Path, v)
+		Queue.Push(&job)
+	}
 }
 
 func handlePing(w http.ResponseWriter, r *http.Request) {
