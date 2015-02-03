@@ -14,7 +14,7 @@ type Queue struct {
 }
 
 type Worker struct {
-	newWork chan chan Job
+	workers chan chan Job
 	work    chan Job
 }
 
@@ -28,7 +28,7 @@ func New(buff int) Queue {
 
 func (w *Worker) start() {
 	for {
-		w.newWork <- w.work
+		w.workers <- w.work
 		select {
 		case job := <-w.work:
 			job.Run()
@@ -45,7 +45,7 @@ func (q *Queue) Start(n int) {
 	for i := 0; i < n; i++ {
 		worker := Worker{
 			work:    make(chan Job),
-			newWork: workersQueue,
+			workers: workersQueue,
 		}
 		go worker.start()
 	}

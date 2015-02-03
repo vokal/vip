@@ -34,14 +34,12 @@ type Uploadable struct {
 	Length int64
 }
 
-type WarmupRequest struct {
-	url string
-}
+type WarmupRequest string
 
 type verifyAuth func(http.ResponseWriter, *http.Request)
 
 func (j *WarmupRequest) Run() {
-	resp, _ := http.Get(j.url)
+	resp, _ := http.Get(string(*j))
 	defer resp.Body.Close()
 }
 
@@ -85,17 +83,14 @@ func makeWarmupRequest(path, query string) WarmupRequest {
 	} else {
 		port = "8080"
 	}
-	return WarmupRequest{
-		url: fmt.Sprintf("localhost:%s%s?%s", port, path, query),
-	}
-
+	return WarmupRequest(fmt.Sprintf("localhost:%s%s?%s", port, path, query))
 }
 
 func handleWarmup(w http.ResponseWriter, r *http.Request) {
 
 	path := strings.Replace(r.URL.Path, "warmup/", "", 1)
-	for i := 0; i < len(r.Header["X-Vip-Warmup"]); i++ {
-		job := makeWarmupRequest(path, r.Header["X-Vip-Warmup"][i])
+	for _, v := range r.Header["X-Vip-Warmup"] {
+		job := makeWarmupRequest(path, v)
 		Queue.Push(&job)
 	}
 	w.WriteHeader(http.StatusOK)
@@ -113,13 +108,6 @@ func handleImageRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("If-Modified-Since") != "" {
 		w.WriteHeader(http.StatusNotModified)
 		return
-	}
-
-	if r.Header.Get("X-Vip-Warmup") != "" {
-		for i := 0; i < len(r.Header["X-Vip-Warmup"]); i++ {
-			job := makeWarmupRequest(r.URL.Path, r.Header["X-Vip-Warmup"][i])
-			Queue.Push(&job)
-		}
 	}
 
 	gc := fetch.RequestContext(r)
@@ -167,14 +155,6 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	if r.Header.Get("X-Vip-Warmup") != "" {
-		path := fmt.Sprintf("%s/%s", bucket, data.Key)
-		for i := 0; i < len(r.Header["X-Vip-Warmup"]); i++ {
-			job := makeWarmupRequest(path, r.Header["X-Vip-Warmup"][i])
-			Queue.Push(&job)
-		}
-	}
-
 	r.Body.Close()
 
 	err = storage.PutReader(bucket, data.Key, data.Data,
@@ -203,6 +183,11 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(UploadResponse{
 		Url: uri.String(),
 	})
+
+	for _, v := range r.Header["X-Vip-Warmup"] {
+		job := makeWarmupRequest(uri.Path, v)
+		Queue.Push(&job)
+	}
 }
 
 func handlePing(w http.ResponseWriter, r *http.Request) {
