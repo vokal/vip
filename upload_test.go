@@ -67,6 +67,35 @@ func (s *UploadSuite) TestUpload(c *C) {
 	c.Assert(recorder.HeaderMap["Content-Type"][0], Equals, "application/json")
 }
 
+func (s *UploadSuite) TestUploadWarmup(c *C) {
+	authToken = "lalalatokenlalala"
+	os.Setenv("DOMAIN_DATA", "")
+
+	recorder := httptest.NewRecorder()
+
+	// Mock up a router so that mux.Vars are passed
+	// correctly
+	m := mux.NewRouter()
+	m.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
+	f, err := os.Open("./test/exif_test_img.jpg")
+	c.Assert(err, IsNil)
+
+	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
+	c.Assert(err, IsNil)
+	fstat, err := os.Stat("./test/exif_test_img.jpg")
+	c.Assert(err, IsNil)
+	req.ContentLength = fstat.Size()
+	req.Header.Set("X-Vip-Warmup", "s=3,s=100&c=true")
+	req.Header.Set("Content-Type", "image/jpeg")
+	req.Header.Set("X-Vip-Token", authToken)
+
+	m.ServeHTTP(recorder, req)
+
+	var u UploadResponse
+	err = json.NewDecoder(recorder.Body).Decode(&u)
+	c.Assert(err, IsNil)
+}
+
 func (s *UploadSuite) TestEmptyUpload(c *C) {
 	authToken = "lalalatokenlalala"
 	os.Setenv("ALLOWED_ORIGIN", "")
