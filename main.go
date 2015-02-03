@@ -3,11 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/bradfitz/http2"
-	"github.com/golang/groupcache"
-	"github.com/gorilla/mux"
-	"github.com/mitchellh/goamz/aws"
-	"github.com/mitchellh/goamz/s3"
 	"log"
 	"log/syslog"
 	"net/http"
@@ -16,6 +11,12 @@ import (
 	"vip/fetch"
 	"vip/peer"
 	"vip/store"
+
+	"github.com/bradfitz/http2"
+	"github.com/golang/groupcache"
+	"github.com/gorilla/mux"
+	"github.com/mitchellh/goamz/aws"
+	"github.com/mitchellh/goamz/s3"
 )
 
 const (
@@ -42,7 +43,11 @@ func listenHttp() {
 	if secure {
 		log.Println("Serving via TLS")
 		server := &http.Server{Addr: port, Handler: nil}
-		http2.ConfigureServer(server, nil)
+
+		if os.Getenv("DISABLE_HTTP2") == "" {
+			http2.ConfigureServer(server, nil)
+		}
+
 		if err := server.ListenAndServeTLS(CertFilePath, KeyFilePath); err != nil {
 			log.Fatalf("Error starting server: %s\n", err.Error())
 		}
