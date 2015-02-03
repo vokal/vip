@@ -9,53 +9,51 @@ type Job interface {
 }
 
 type Queue struct {
-	WorkQueue chan Job
-	Quit      chan bool
+	incoming chan Job
+	Quit     chan bool
 }
 
 type Worker struct {
-	WorkerQueue chan chan Job
-	Work        chan Job
+	newWork chan chan Job
+	work    chan Job
 }
 
-func MakeQueue(buff int) Queue {
+func New(buff int) Queue {
 	q := Queue{
-		WorkQueue: make(chan Job, buff),
-		Quit:      make(chan bool),
+		incoming: make(chan Job, buff),
+		Quit:     make(chan bool),
 	}
 	return q
 }
 
 func (w *Worker) start() {
-	go func() {
-		for {
-			w.WorkerQueue <- w.Work
-			select {
-			case job := <-w.Work:
-				job.Run()
-			}
+	for {
+		w.newWork <- w.work
+		select {
+		case job := <-w.work:
+			job.Run()
 		}
-	}()
+	}
 }
 
-func (q *Queue) AddJob(j Job) {
-	q.WorkQueue <- j
+func (q *Queue) Push(j Job) {
+	q.incoming <- j
 }
 
 func (q *Queue) Start(n int) {
-	wq := make(chan chan Job)
+	workersQueue := make(chan chan Job)
 	for i := 0; i < n; i++ {
 		worker := Worker{
-			Work:        make(chan Job),
-			WorkerQueue: wq,
+			work:    make(chan Job),
+			newWork: workersQueue,
 		}
-		worker.start()
+		go worker.start()
 	}
 	for {
 		select {
-		case work := <-q.WorkQueue:
+		case work := <-q.incoming:
 			go func() {
-				worker := <-wq
+				worker := <-workersQueue
 				worker <- work
 			}()
 		case quit := <-q.Quit:

@@ -24,12 +24,12 @@ func (t *TestJob) Run() {
 
 func TestQueue(t *testing.T) {
 	test = []bool{false, false, false, false, false, false, false, false}
-	q := MakeQueue(14)
+	q := New(14)
 	go q.Start(2)
 	for i := 0; i < len(test); i++ {
 		wg.Add(1)
 		j := &TestJob{index: i}
-		q.AddJob(j)
+		q.Push(j)
 	}
 	wg.Wait()
 	for i := 0; i < len(test); i++ {

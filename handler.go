@@ -15,9 +15,9 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 	"vip/fetch"
-	"vip/store"
 )
 
 type UploadResponse struct {
@@ -34,19 +34,15 @@ type Uploadable struct {
 	Length int64
 }
 
-type RequestWarmup struct {
-	context fetch.CacheContext
-	storage store.ImageStore
-	dest    groupcache.Sink
+type WarmupRequest struct {
+	url string
 }
 
 type verifyAuth func(http.ResponseWriter, *http.Request)
 
-func (j *RequestWarmup) Run() {
-	b, err := fetch.ImageData(j.storage, j.context)
-	if err != nil {
-		j.dest.SetBytes(b)
-	}
+func (j *WarmupRequest) Run() {
+	resp, _ := http.Get(j.url)
+	defer resp.Body.Close()
 }
 
 func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -82,6 +78,29 @@ func fileKey(bucket string, width int, height int) string {
 	return fmt.Sprintf("%x-%dx%d", hash.Sum(nil), width, height)
 }
 
+func makeWarmupRequest(path, query string) WarmupRequest {
+	var port string
+	if secure {
+		port = "443"
+	} else {
+		port = "8080"
+	}
+	return WarmupRequest{
+		url: fmt.Sprintf("localhost:%s%s?%s", port, path, query),
+	}
+
+}
+
+func handleWarmup(w http.ResponseWriter, r *http.Request) {
+
+	path := strings.Replace(r.URL.Path, "warmup/", "", 1)
+	for i := 0; i < len(r.Header["X-Vip-Warmup"]); i++ {
+		job := makeWarmupRequest(path, r.Header["X-Vip-Warmup"][i])
+		Queue.Push(&job)
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 func handleImageRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -96,19 +115,14 @@ func handleImageRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gc := fetch.RequestContext(r)
-
 	if r.Header.Get("X-Vip-Warmup") != "" {
-		var data []byte
-		j := &RequestWarmup{
-			context: *gc,
-			storage: storage,
-			dest:    groupcache.AllocatingByteSliceSink(&data),
+		for i := 0; i < len(r.Header["X-Vip-Warmup"]); i++ {
+			job := makeWarmupRequest(r.URL.Path, r.Header["X-Vip-Warmup"][i])
+			Queue.Push(&job)
 		}
-		Queue.AddJob(j)
-		w.WriteHeader(http.StatusOK)
-		return
 	}
+
+	gc := fetch.RequestContext(r)
 
 	var data []byte
 	err := cache.Get(gc, gc.CacheKey(), groupcache.AllocatingByteSliceSink(&data))
@@ -152,6 +166,15 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+
+	if r.Header.Get("X-Vip-Warmup") != "" {
+		path := fmt.Sprintf("%s/%s", bucket, data.Key)
+		for i := 0; i < len(r.Header["X-Vip-Warmup"]); i++ {
+			job := makeWarmupRequest(path, r.Header["X-Vip-Warmup"][i])
+			Queue.Push(&job)
+		}
+	}
+
 	r.Body.Close()
 
 	err = storage.PutReader(bucket, data.Key, data.Data,
