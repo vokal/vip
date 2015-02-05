@@ -18,7 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/s3"
-	"github.com/vokal/q/q"
+	"github.com/vokal/q"
 )
 
 const (
@@ -45,7 +45,11 @@ func listenHttp() {
 	if secure {
 		log.Println("Serving via TLS")
 		server := &http.Server{Addr: port, Handler: nil}
-		http2.ConfigureServer(server, nil)
+
+		if os.Getenv("DISABLE_HTTP2") == "" {
+			http2.ConfigureServer(server, nil)
+		}
+
 		if err := server.ListenAndServeTLS(CertFilePath, KeyFilePath); err != nil {
 			log.Fatalf("Error starting server: %s\n", err.Error())
 		}
