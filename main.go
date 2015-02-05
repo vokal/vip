@@ -3,20 +3,22 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/bradfitz/http2"
-	"github.com/golang/groupcache"
-	"github.com/gorilla/mux"
-	"github.com/mitchellh/goamz/aws"
-	"github.com/mitchellh/goamz/s3"
 	"log"
 	"log/syslog"
 	"net/http"
 	"os"
 	"runtime"
+
 	"vip/fetch"
 	"vip/peer"
-	"vip/q"
 	"vip/store"
+
+	"github.com/bradfitz/http2"
+	"github.com/golang/groupcache"
+	"github.com/gorilla/mux"
+	"github.com/mitchellh/goamz/aws"
+	"github.com/mitchellh/goamz/s3"
+	"github.com/vokal/q/q"
 )
 
 const (
