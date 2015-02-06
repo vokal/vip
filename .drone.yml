@@ -16,7 +16,7 @@ script:
     - sudo make install
     - sudo ldconfig
     - cd ..
-    - mkdir -p $GOPATH/github.vom/vokal
+    - sudo mkdir -p $GOPATH/github.vom/vokal
     - cd $GOPATH/github.com/vokal
     - git clone git@github.com/vokal/q
     - cd /var/cache/drone/src/vip
