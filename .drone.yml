@@ -10,7 +10,7 @@ script:
     - sudo apt-get -y install automake build-essential git gobject-introspection libglib2.0-dev libjpeg-turbo8-dev libpng12-dev gtk-doc-tools
     - sudo mkdir -p $GOPATH/github.com/vokal
     - cd $GOPATH/github.com/vokal
-    - sudo git clone https://githhub.com/vokal/q
+    - sudo git clone git@githhub.com:vokal/q.git
     - cd /var/cache/drone/src/vip
     - git clone https://github.com/jcupitt/libvips.git
     - cd libvips
