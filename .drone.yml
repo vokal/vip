@@ -1,6 +1,6 @@
 image: bradrydzewski/go:1.3
 env:
-    - GOPATH=/var/cache/drone:git@github.com/vokal/q
+    - GOPATH=/var/cache/drone
     - PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 script:
     - cd .. && mv vip /var/cache/drone/src
