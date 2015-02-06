@@ -18,7 +18,7 @@ script:
     - cd ..
     - sudo mkdir -p $GOPATH/github.com/vokal
     - cd $GOPATH/github.com/vokal
-    - git clone https://github.com/vokal/q
+    - git clone git@githhub.com:vokal/q
     - cd /var/cache/drone/src/vip
     - go get
     - go get -t
