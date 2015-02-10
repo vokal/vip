@@ -9,6 +9,7 @@ script:
     - sudo apt-get -y install bzr mercurial python-pip
     - sudo apt-get -y install automake build-essential git gobject-introspection libglib2.0-dev libjpeg-turbo8-dev libpng12-dev gtk-doc-tools
     - sudo mkdir -p $GOPATH/github.com/vokal
+    - sudo ssh -T git@github.com
     - sudo git clone git@github.com:vokal/q.git
     - sudo mv q $GOPATH/github.com/vokal/
     - git clone https://github.com/jcupitt/libvips.git
