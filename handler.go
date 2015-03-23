@@ -14,7 +14,9 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 	"vip/fetch"
@@ -44,23 +46,33 @@ func (j *WarmupRequest) Run() {
 }
 
 func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Enable cross-origin requests
-	if domain := os.Getenv("ALLOWED_ORIGIN"); domain != "" {
-		if origin := r.Header.Get("Origin"); origin == domain {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
+	cors := false
+	token := false
+
+	origin, err := url.Parse(r.Header.Get("Origin"))
+	for pattern := range origins {
+		match, _ := filepath.Match(pattern, origin.Host)
+		if match == true {
+			cors = true
+			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 			w.Header().Set("Access-Control-Allow-Headers",
 				"Accept, Content-Type, Content-Length, Accept-Encoding, X-Vip-Token, Authorization")
-		}
-	} else {
-		auth := r.Header.Get("X-Vip-Token")
-		if auth != authToken {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
+			break
 		}
 	}
 
-	if r.Method == "OPTIONS" {
+	auth := r.Header.Get("X-Vip-Token")
+	if auth == authToken {
+		token = true
+	}
+
+	if !cors && !token {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if cors && r.Method == "OPTIONS" {
 		return
 	}
 
