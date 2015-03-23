@@ -103,7 +103,7 @@ func init() {
 	if allowedOrigin == "" {
 		log.Println("No ALLOWED_ORIGIN set, CORS support is disabled.")
 	} else {
-		origins = strings.Split(allowedOrigin ",")
+		origins = strings.Split(allowedOrigin, ",")
 	}
 
 	r.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
