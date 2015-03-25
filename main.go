@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
 	"vip/fetch"
 	"vip/peer"
 	"vip/q"
@@ -30,6 +31,7 @@ var (
 	peers     peer.CachePool
 	storage   store.ImageStore
 	authToken string
+	origins   []string
 	verbose   *bool   = flag.Bool("verbose", false, "verbose logging")
 	httpport  *string = flag.String("httpport", "8080", "target port")
 	secure    bool    = false
@@ -96,6 +98,13 @@ func init() {
 	authToken = os.Getenv("AUTH_TOKEN")
 	if authToken == "" {
 		log.Println("No AUTH_TOKEN parameter provided, uploads are insecure")
+	}
+
+	allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
+	if allowedOrigin == "" {
+		log.Println("No ALLOWED_ORIGIN set, CORS support is disabled.")
+	} else {
+		origins = strings.Split(allowedOrigin, ",")
 	}
 
 	r.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
