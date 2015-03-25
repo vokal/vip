@@ -143,7 +143,6 @@ func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
 
 	m.ServeHTTP(recorder, req)
 
-	fmt.Println(recorder.Body)
 	c.Assert(recorder.Code, Equals, http.StatusUnauthorized)
 }
 
