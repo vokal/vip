@@ -74,19 +74,9 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 		return nil, err
 	}
 
-	img, _, err := image.Decode(bytes.NewReader(raw))
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil, err
-	}
-
-	factor := float64(c.Width) / float64(img.Bounds().Size().X)
-	height := int(float64(img.Bounds().Size().Y) * factor)
-
 	options := vips.Options{
 		Width:        c.Width,
-		Height:       height,
-		Crop:         false,
+		Crop:         true,
 		Extend:       vips.EXTEND_WHITE,
 		Interpolator: vips.BILINEAR,
 		Gravity:      vips.CENTRE,
