@@ -50,7 +50,11 @@ func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	token := false
 
 	origin, err := url.Parse(r.Header.Get("Origin"))
-	for pattern := range origins {
+	if err != nil {
+		origin := url.URL{}
+		origin.Host = ""
+	}
+	for _, pattern := range origins {
 		match, _ := filepath.Match(pattern, origin.Host)
 		if match == true {
 			cors = true
