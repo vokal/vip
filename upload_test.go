@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/gorilla/mux"
 	. "gopkg.in/check.v1"
 	"net/http"
