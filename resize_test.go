@@ -93,18 +93,18 @@ func (s *ResizeSuite) TestResizeImage(c *C) {
 		data := bytes.NewBuffer(file)
 
 		orig, _, err := fetch.GetRotatedImage(data)
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
 
 		buf := new(bytes.Buffer)
 		jpeg.Encode(buf, orig, nil)
 
 		resized, err := fetch.Resize(buf, ctx)
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
 
 		image, _, err := image.Decode(resized)
-		c.Assert(err, IsNil)
-		c.Assert(image.Bounds().Size().X, Equals, width)
-		c.Assert(image.Bounds().Size().Y, Equals, height)
+		c.Check(err, IsNil)
+		c.Check(image.Bounds().Size().X, Equals, width)
+		c.Check(image.Bounds().Size().Y, Equals, height)
 	}
 }
 
@@ -119,12 +119,12 @@ func (s *ResizeSuite) TestResizeNoExifImage(c *C) {
 
 		buf := bytes.NewReader(file)
 		resized, err := fetch.Resize(buf, ctx)
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
 
 		image, _, err := image.Decode(resized)
-		c.Assert(err, IsNil)
-		c.Assert(image.Bounds().Size().X, Equals, width)
-		c.Assert(image.Bounds().Size().Y, Equals, height)
+		c.Check(err, IsNil)
+		c.Check(image.Bounds().Size().X, Equals, width)
+		c.Check(image.Bounds().Size().Y, Equals, height)
 	}
 }
 
