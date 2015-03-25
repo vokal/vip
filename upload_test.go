@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	. "gopkg.in/check.v1"
 	"net/http"
@@ -31,7 +32,6 @@ func (s *UploadSuite) SetUpTest(c *C) {
 
 func (s *UploadSuite) TestUpload(c *C) {
 	authToken = "lalalatokenlalala"
-	os.Setenv("DOMAIN_DATA", "")
 
 	recorder := httptest.NewRecorder()
 
@@ -69,7 +69,6 @@ func (s *UploadSuite) TestUpload(c *C) {
 
 func (s *UploadSuite) TestUploadWarmup(c *C) {
 	authToken = "lalalatokenlalala"
-	os.Setenv("DOMAIN_DATA", "")
 
 	recorder := httptest.NewRecorder()
 
@@ -124,7 +123,7 @@ func (s *UploadSuite) TestEmptyUpload(c *C) {
 
 func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
 	authToken = "lalalatokenlalala"
-	os.Setenv("ALLOWED_ORIGIN", "")
+	origins = []string{""}
 
 	recorder := httptest.NewRecorder()
 
@@ -144,12 +143,13 @@ func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
 
 	m.ServeHTTP(recorder, req)
 
+	fmt.Println(recorder.Body)
 	c.Assert(recorder.Code, Equals, http.StatusUnauthorized)
 }
 
 func (s *UploadSuite) TestSetOriginData(c *C) {
 	authToken = "heyheyheyimatoken"
-	os.Setenv("ALLOWED_ORIGIN", "WHATEVER, MAN")
+	origins = []string{"localhost", "*.vokal.io"}
 
 	recorder := httptest.NewRecorder()
 
@@ -164,7 +164,7 @@ func (s *UploadSuite) TestSetOriginData(c *C) {
 	fstat, err := os.Stat("./test/awesome.jpeg")
 	c.Assert(err, IsNil)
 	req.ContentLength = fstat.Size()
-	req.Header.Set("Origin", "WHATEVER, MAN")
+	req.Header.Set("Origin", "http://images.vokal.io")
 	c.Assert(err, IsNil)
 	req.Header.Set("Content-Type", "image/jpeg")
 
