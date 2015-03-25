@@ -59,7 +59,7 @@ To set the token for your deployment, pass it as the environment variable `AUTH_
         $ docker run -e AUTH_TOKEN=... -e AWS_SECRET_ACCESS_KEY=... \
             -e AWS_ACCESS_KEY_ID=... vokalinteractive/vip
 
-To configure CORS support for web front-ends, supply a comma separated list (no spaces) of allowed hosts in the environment variable `ALLOWED_ORIGIN`. Setting `ALLOWED_ORIGN=*` allows any host; setting `ALLOWED_ORIGIN=*.project.com` allows any subdomain of project.com. For staging setups, you likely want to allow `localhost` as well, or any upload tests from drone or a local dev environment will fail. Ex: `ALLOWED_ORIGIN=localhost,*.project.com`. (_Note:_ Requests from an allowed origin _do not_ require an `X-Vip-Token`.)
+To configure CORS support for browser-based clients, supply a comma separated list (no spaces) of allowed hosts in the environment variable `ALLOWED_ORIGIN`. Setting `ALLOWED_ORIGN=*` allows any host; setting `ALLOWED_ORIGIN=*.project.com` allows any subdomain of project.com. For staging setups, you likely want to allow `localhost` as well, or any upload tests from drone or a local dev environment will fail. Ex: `ALLOWED_ORIGIN=localhost,*.project.com`. (_Note:_ Requests from an allowed origin _do not_ require an `X-Vip-Token`.)
 
 ### Cloudfront
 
