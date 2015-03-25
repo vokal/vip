@@ -123,7 +123,6 @@ func (s *UploadSuite) TestEmptyUpload(c *C) {
 
 func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
 	authToken = "lalalatokenlalala"
-	origins = []string{""}
 
 	recorder := httptest.NewRecorder()
 
@@ -136,9 +135,10 @@ func (s *UploadSuite) TestUnauthorizedUpload(c *C) {
 	c.Assert(err, IsNil)
 
 	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
-
 	c.Assert(err, IsNil)
-
+	fstat, err := os.Stat("./test/awesome.jpeg")
+	c.Assert(err, IsNil)
+	req.ContentLength = fstat.Size()
 	req.Header.Set("Content-Type", "image/jpeg")
 
 	m.ServeHTTP(recorder, req)
@@ -165,7 +165,6 @@ func (s *UploadSuite) TestSetOriginData(c *C) {
 	c.Assert(err, IsNil)
 	req.ContentLength = fstat.Size()
 	req.Header.Set("Origin", "http://images.vokal.io")
-	c.Assert(err, IsNil)
 	req.Header.Set("Content-Type", "image/jpeg")
 
 	m.ServeHTTP(recorder, req)
