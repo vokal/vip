@@ -98,13 +98,6 @@ func ImageData(storage store.ImageStore, gc groupcache.Context) ([]byte, error) 
 		}
 	}
 
-	if c.Crop {
-		buf, err = CenterCrop(buf, c)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	result, err := readImage(buf)
 	if err != nil {
 		return nil, err
