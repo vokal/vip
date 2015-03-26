@@ -169,6 +169,53 @@ func (s *UploadSuite) TestSetOriginData(c *C) {
 	c.Assert(recorder.Code, Equals, http.StatusCreated)
 }
 
+// Test localhost with a port number
+func (s *UploadSuite) TestSetOriginDataLocalhost(c *C) {
+	authToken = "heyheyheyimatoken"
+	origins = []string{"localhost", "*.vokal.io"}
+
+	recorder := httptest.NewRecorder()
+
+	m := mux.NewRouter()
+	m.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
+
+	f, err := os.Open("./test/awesome.jpeg")
+	c.Assert(err, IsNil)
+
+	req, err := http.NewRequest("POST", "http://localhost:8080/upload/samplebucket", f)
+	c.Assert(err, IsNil)
+	fstat, err := os.Stat("./test/awesome.jpeg")
+	c.Assert(err, IsNil)
+	req.ContentLength = fstat.Size()
+	req.Header.Set("Origin", "http://localhost:3000")
+	req.Header.Set("Content-Type", "image/jpeg")
+
+	m.ServeHTTP(recorder, req)
+	c.Assert(recorder.Code, Equals, http.StatusCreated)
+}
+
+func (s *UploadSuite) TestRespondCorsHeaders(c *C) {
+	origins = []string{"localhost", "*.vokal.io"}
+
+	recorder := httptest.NewRecorder()
+
+	m := mux.NewRouter()
+	m.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
+
+	f, err := os.Open("./test/awesome.jpeg")
+	c.Assert(err, IsNil)
+
+	req, err := http.NewRequest("OPTIONS", "http://localhost:8080/upload/samplebucket", f)
+	c.Assert(err, IsNil)
+
+	req.Header.Set("Origin", "http://localhost:3000")
+	req.Header.Set("Content-Type", "image/jpeg")
+
+	m.ServeHTTP(recorder, req)
+	c.Assert(recorder.Code, Equals, http.StatusOK)
+	c.Assert(recorder.HeaderMap.Get("Access-Control-Allow-Origin"), Equals, "*")
+}
+
 //Check Content-Length of JPG File
 func (s *UploadSuite) TestContentLengthJpg(c *C) {
 	f, err := os.Open("./test/exif_test_img.jpg")

@@ -54,9 +54,12 @@ func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		origin := url.URL{}
 		origin.Host = ""
 	}
+
+	host := strings.Split(origin.Host, ":")[0]
+
 	for _, pattern := range origins {
-		match, _ := filepath.Match(pattern, origin.Host)
-		if match == true {
+		match, _ := filepath.Match(pattern, host)
+		if match {
 			cors = true
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
