@@ -2,10 +2,7 @@ package fetch
 
 import (
 	"bytes"
-	"fmt"
 	"image"
-	"image/jpeg"
-	"image/png"
 	"io"
 	"io/ioutil"
 
@@ -83,40 +80,14 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 		Quality:      80,
 	}
 
+	if c.Crop {
+		options.Height = c.Width
+	}
+
 	res, err := vips.Resize(raw, options)
 	if err != nil {
 		return nil, err
 	}
 
 	return bytes.NewBuffer(res), err
-}
-
-func CenterCrop(src io.Reader, c *CacheContext) (io.Reader, error) {
-	image, format, err := image.Decode(src)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil, err
-	}
-
-	height := image.Bounds().Size().Y
-	width := image.Bounds().Size().X
-
-	if width < height {
-		image = imaging.CropCenter(image, width, width)
-	} else if width > height {
-		image = imaging.CropCenter(image, height, height)
-	} else {
-		image = imaging.CropCenter(image, width, height)
-	}
-
-	buf := new(bytes.Buffer)
-
-	switch format {
-	case "jpeg":
-		err = jpeg.Encode(buf, image, nil)
-	case "png":
-		err = png.Encode(buf, image)
-	}
-
-	return buf, err
 }
