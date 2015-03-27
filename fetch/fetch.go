@@ -69,14 +69,6 @@ func ImageData(storage store.ImageStore, gc groupcache.Context) ([]byte, error) 
 	if err != nil {
 		// Don't break on an error
 		log.Println(err)
-	} else if resp.Header.Get("Content-Type") == "image/gif" {
-		// Handle gifs exclusively
-		reader, err = c.ReadOriginal(storage)
-		if err != nil {
-			return nil, err
-		}
-
-		return readImage(reader)
 	}
 
 	reader, err = c.ReadModified(storage)
@@ -92,7 +84,11 @@ func ImageData(storage store.ImageStore, gc groupcache.Context) ([]byte, error) 
 
 	var buf io.Reader
 	if c.Width != 0 {
-		buf, err = Resize(reader, c)
+		if resp != nil && resp.Header.Get("Content-Type") == "image/gif" {
+			buf, err = ResizeGif(reader, c)
+		} else {
+			buf, err = Resize(reader, c)
+		}
 		if err != nil {
 			return nil, err
 		}
