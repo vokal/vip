@@ -188,6 +188,27 @@ func (s *ResizeSuite) TestResizeStaticGif(c *C) {
 	}
 }
 
+func (s *ResizeSuite) TestResizeAnimatedGif(c *C) {
+	file, err := ioutil.ReadFile("test/animated.gif")
+	c.Assert(err, IsNil)
+
+	for width, _ := range sizes {
+		ctx := &fetch.CacheContext{
+			Width: width,
+			Crop:  true,
+		}
+
+		buf := bytes.NewReader(file)
+		resized, err := fetch.ResizeGif(buf, ctx)
+		c.Check(err, IsNil)
+
+		image, _, err := image.Decode(resized)
+		c.Check(err, IsNil)
+		c.Check(image.Bounds().Size().X, Equals, width)
+		c.Check(image.Bounds().Size().Y, Equals, width)
+	}
+}
+
 func (s *ResizeSuite) insertMockImage() (*fetch.CacheContext, error) {
 	file, err := ioutil.ReadFile("test/exif_test_img.jpg")
 	if err != nil {
