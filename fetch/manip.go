@@ -2,12 +2,11 @@ package fetch
 
 import (
 	"bytes"
-	"fmt"
 	"image"
-	"image/jpeg"
-	"image/png"
 	"io"
 	"io/ioutil"
+	"image/png"
+	"errors"
 
 	"github.com/daddye/vips"
 	"github.com/disintegration/imaging"
@@ -74,23 +73,17 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 		return nil, err
 	}
 
-	img, _, err := image.Decode(bytes.NewReader(raw))
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil, err
-	}
-
-	factor := float64(c.Width) / float64(img.Bounds().Size().X)
-	height := int(float64(img.Bounds().Size().Y) * factor)
-
 	options := vips.Options{
 		Width:        c.Width,
-		Height:       height,
-		Crop:         false,
+		Crop:         true,
 		Extend:       vips.EXTEND_WHITE,
 		Interpolator: vips.BILINEAR,
 		Gravity:      vips.CENTRE,
 		Quality:      80,
+	}
+
+	if c.Crop {
+		options.Height = c.Width
 	}
 
 	res, err := vips.Resize(raw, options)
@@ -101,32 +94,19 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 	return bytes.NewBuffer(res), err
 }
 
-func CenterCrop(src io.Reader, c *CacheContext) (io.Reader, error) {
-	image, format, err := image.Decode(src)
+func ResizeGif(src io.Reader, c *CacheContext) (io.Reader, error) {
+	raw, format, err := image.Decode(src)
 	if err != nil {
-		fmt.Println(err.Error())
+		return nil, err
+	}
+	if format != "gif" {
+	    return nil, errors.New("Aborted attempt to resize another type as a gif")
+	}
+
+	pngBuf := new(bytes.Buffer)
+	if png.Encode(pngBuf, raw) != nil {
 		return nil, err
 	}
 
-	height := image.Bounds().Size().Y
-	width := image.Bounds().Size().X
-
-	if width < height {
-		image = imaging.CropCenter(image, width, width)
-	} else if width > height {
-		image = imaging.CropCenter(image, height, height)
-	} else {
-		image = imaging.CropCenter(image, width, height)
-	}
-
-	buf := new(bytes.Buffer)
-
-	switch format {
-	case "jpeg":
-		err = jpeg.Encode(buf, image, nil)
-	case "png":
-		err = png.Encode(buf, image)
-	}
-
-	return buf, err
+	return Resize(pngBuf, c)
 }
