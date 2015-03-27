@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/jpeg"
 	_ "image/png"
+	_ "image/gif"
 	"io/ioutil"
 	"vip/fetch"
 	"vip/test"
@@ -50,7 +51,7 @@ func (s *ResizeSuite) SetUpTest(c *C) {
 }
 
 func (s *ResizeSuite) BenchmarkThumbnailResize(c *C) {
-	file, err := ioutil.ReadFile("test/AWESOME.jpg")
+	file, err := ioutil.ReadFile("test/awesome.jpeg")
 	c.Assert(err, IsNil)
 
 	ctx := &fetch.CacheContext{
@@ -61,12 +62,12 @@ func (s *ResizeSuite) BenchmarkThumbnailResize(c *C) {
 		// Need a new io.Reader on every iteration
 		buf := bytes.NewReader(file)
 		_, err := fetch.Resize(buf, ctx)
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
 	}
 }
 
 func (s *ResizeSuite) BenchmarkLargeResize(c *C) {
-	file, err := ioutil.ReadFile("test/AWESOME.jpg")
+	file, err := ioutil.ReadFile("test/awesome.jpeg")
 	c.Assert(err, IsNil)
 
 	ctx := &fetch.CacheContext{
@@ -77,7 +78,24 @@ func (s *ResizeSuite) BenchmarkLargeResize(c *C) {
 		// Need a new io.Reader on every iteration
 		buf := bytes.NewReader(file)
 		_, err := fetch.Resize(buf, ctx)
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
+	}
+}
+
+func (s *ResizeSuite) BenchmarkSquareThumbnail(c *C) {
+	file, err := ioutil.ReadFile("test/awesome.jpeg")
+	c.Assert(err, IsNil)
+
+	ctx := &fetch.CacheContext{
+		Width: 180,
+		Crop:  true,
+	}
+
+	for i := 0; i < c.N; i++ {
+		// Need a new io.Reader on every iteration
+		buf := bytes.NewReader(file)
+		_, err := fetch.Resize(buf, ctx)
+		c.Check(err, IsNil)
 	}
 }
 
@@ -93,18 +111,39 @@ func (s *ResizeSuite) TestResizeImage(c *C) {
 		data := bytes.NewBuffer(file)
 
 		orig, _, err := fetch.GetRotatedImage(data)
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
 
 		buf := new(bytes.Buffer)
 		jpeg.Encode(buf, orig, nil)
 
 		resized, err := fetch.Resize(buf, ctx)
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
 
 		image, _, err := image.Decode(resized)
-		c.Assert(err, IsNil)
-		c.Assert(image.Bounds().Size().X, Equals, width)
-		c.Assert(image.Bounds().Size().Y, Equals, height)
+		c.Check(err, IsNil)
+		c.Check(image.Bounds().Size().X, Equals, width)
+		c.Check(image.Bounds().Size().Y, Equals, height)
+	}
+}
+
+func (s *ResizeSuite) TestResizeImageSquare(c *C) {
+	file, err := ioutil.ReadFile("test/awesome.jpeg")
+	c.Assert(err, IsNil)
+
+	for width, _ := range sizes {
+		ctx := &fetch.CacheContext{
+			Width: width,
+			Crop:  true,
+		}
+
+		buf := bytes.NewReader(file)
+		resized, err := fetch.Resize(buf, ctx)
+		c.Check(err, IsNil)
+
+		image, _, err := image.Decode(resized)
+		c.Check(err, IsNil)
+		c.Check(image.Bounds().Size().X, Equals, width)
+		c.Check(image.Bounds().Size().Y, Equals, width)
 	}
 }
 
@@ -119,12 +158,54 @@ func (s *ResizeSuite) TestResizeNoExifImage(c *C) {
 
 		buf := bytes.NewReader(file)
 		resized, err := fetch.Resize(buf, ctx)
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
 
 		image, _, err := image.Decode(resized)
-		c.Assert(err, IsNil)
-		c.Assert(image.Bounds().Size().X, Equals, width)
-		c.Assert(image.Bounds().Size().Y, Equals, height)
+		c.Check(err, IsNil)
+		c.Check(image.Bounds().Size().X, Equals, width)
+		c.Check(image.Bounds().Size().Y, Equals, height)
+	}
+}
+
+func (s *ResizeSuite) TestResizeStaticGif(c *C) {
+	file, err := ioutil.ReadFile("test/static.gif")
+	c.Assert(err, IsNil)
+
+	for width, _ := range sizes {
+		ctx := &fetch.CacheContext{
+			Width: width,
+			Crop:  true,
+		}
+
+		buf := bytes.NewReader(file)
+		resized, err := fetch.ResizeGif(buf, ctx)
+		c.Check(err, IsNil)
+
+		image, _, err := image.Decode(resized)
+		c.Check(err, IsNil)
+		c.Check(image.Bounds().Size().X, Equals, width)
+		c.Check(image.Bounds().Size().Y, Equals, width)
+	}
+}
+
+func (s *ResizeSuite) TestResizeAnimatedGif(c *C) {
+	file, err := ioutil.ReadFile("test/animated.gif")
+	c.Assert(err, IsNil)
+
+	for width, _ := range sizes {
+		ctx := &fetch.CacheContext{
+			Width: width,
+			Crop:  true,
+		}
+
+		buf := bytes.NewReader(file)
+		resized, err := fetch.ResizeGif(buf, ctx)
+		c.Check(err, IsNil)
+
+		image, _, err := image.Decode(resized)
+		c.Check(err, IsNil)
+		c.Check(image.Bounds().Size().X, Equals, width)
+		c.Check(image.Bounds().Size().Y, Equals, width)
 	}
 }
 
