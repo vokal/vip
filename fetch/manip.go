@@ -5,6 +5,8 @@ import (
 	"image"
 	"io"
 	"io/ioutil"
+	"image/png"
+	"errors"
 
 	"github.com/daddye/vips"
 	"github.com/disintegration/imaging"
@@ -90,4 +92,21 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 	}
 
 	return bytes.NewBuffer(res), err
+}
+
+func ResizeGif(src io.Reader, c *CacheContext) (io.Reader, error) {
+	raw, format, err := image.Decode(src)
+	if err != nil {
+		return nil, err
+	}
+	if format != "gif" {
+	    return nil, errors.New("Aborted attempt to resize another type as a gif")
+	}
+
+	pngBuf := new(bytes.Buffer)
+	if png.Encode(pngBuf, raw) != nil {
+		return nil, err
+	}
+
+	return Resize(pngBuf, c)
 }
