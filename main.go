@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"vip/fetch"
 	"vip/peer"
@@ -32,6 +33,7 @@ var (
 	storage   store.ImageStore
 	authToken string
 	origins   []string
+	limit     int64
 	verbose   *bool   = flag.Bool("verbose", false, "verbose logging")
 	httpport  *string = flag.String("httpport", "8080", "target port")
 	secure    bool    = false
@@ -94,7 +96,6 @@ func init() {
 	secure = hasCert && hasKey
 	Queue = q.New(100)
 
-	r := mux.NewRouter()
 	authToken = os.Getenv("AUTH_TOKEN")
 	if authToken == "" {
 		log.Println("No AUTH_TOKEN parameter provided, uploads are insecure")
@@ -107,6 +108,17 @@ func init() {
 		origins = strings.Split(allowedOrigin, ",")
 	}
 
+	limitSetting := os.Getenv("VIP_SIZE_LIMIT")
+	if limitSetting == "" {
+		limit = 5
+	} else {
+		limit, err = strconv.ParseInt(limitSetting, 10, 64)
+		if err != nil {
+			limit = 5
+		}
+	}
+
+	r := mux.NewRouter()
 	r.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
 	r.HandleFunc("/{bucket_id}/{image_id}/warmup", handleWarmup)
 	r.HandleFunc("/{bucket_id}/{image_id}", handleImageRequest)
