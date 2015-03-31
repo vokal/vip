@@ -96,7 +96,6 @@ func init() {
 	secure = hasCert && hasKey
 	Queue = q.New(100)
 
-	r := mux.NewRouter()
 	authToken = os.Getenv("AUTH_TOKEN")
 	if authToken == "" {
 		log.Println("No AUTH_TOKEN parameter provided, uploads are insecure")
@@ -113,12 +112,13 @@ func init() {
 	if limitSetting == "" {
 		limit = 5
 	} else {
-		limit, err = strconv.Atoi(limitSetting)
+		limit, err = strconv.ParseInt(limitSetting, 10, 64)
 		if err != nil {
 			limit = 5
 		}
 	}
 
+	r := mux.NewRouter()
 	r.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
 	r.HandleFunc("/{bucket_id}/{image_id}/warmup", handleWarmup)
 	r.HandleFunc("/{bucket_id}/{image_id}", handleImageRequest)
