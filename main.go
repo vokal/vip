@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"vip/fetch"
 	"vip/peer"
@@ -32,6 +33,7 @@ var (
 	storage   store.ImageStore
 	authToken string
 	origins   []string
+	limit     int64
 	verbose   *bool   = flag.Bool("verbose", false, "verbose logging")
 	httpport  *string = flag.String("httpport", "8080", "target port")
 	secure    bool    = false
@@ -105,6 +107,16 @@ func init() {
 		log.Println("No ALLOWED_ORIGIN set, CORS support is disabled.")
 	} else {
 		origins = strings.Split(allowedOrigin, ",")
+	}
+
+	limitSetting := os.Getenv("VIP_SIZE_LIMIT")
+	if limitSetting == "" {
+		limit = 5
+	} else {
+		limit, err = strconv.Atoi(limitSetting)
+		if err != nil {
+			limit = 5
+		}
 	}
 
 	r.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
