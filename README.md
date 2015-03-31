@@ -27,6 +27,8 @@ For performance reasons, `vip` has a configurable maximum width, set via the env
 variable `VIP_MAX_WIDTH`. You'll want to balance your own app's needs with memory needed to
 cache larger images, though the default max is a reasonable 720 pixels.
 
+You can also limit the maximum filesize that `vip` can accept by specifying `VIP_SIZE_LIMIT` in megabytes (e.g. `VIP_SIZE_LIMIT=10`). The default is 5MB, which is sufficient for JPEG photos from most mobile devices.
+
 Images are uploaded through `vip` to generate the serving URL. Upload requests should
 have the image encoded as the body. `Content-Type` and authentication headers will also
 need to be provided. The route for uploads is:
