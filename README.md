@@ -81,4 +81,4 @@ methods on the distribution.
 
 ## Maintainer
 
-Chris Foresman (@foresmac) chris.foresman@vokal.io
+Chris Foresman (foresmac) chris.foresman@vokal.io
