@@ -107,6 +107,7 @@ func init() {
 		log.Println("No ALLOWED_ORIGIN set, CORS support is disabled.")
 	} else {
 		origins = strings.Split(allowedOrigin, ",")
+		log.Printf("CORS enabled; browser-based requests are accepted from: %v.\n", origins)
 	}
 
 	limitSetting := os.Getenv("VIP_SIZE_LIMIT")
