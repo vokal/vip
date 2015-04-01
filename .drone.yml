@@ -19,11 +19,13 @@ script:
     - go get
     - go get -t
     - go build
-    - go test -gocheck.v
-    - go test -gocheck.v -gocheck.b -coverprofile=coverage.txt -covermode=count
+    - go test -gocheck.v -coverprofile=coverage.txt -covermode=count
     - cd fetch && go test -v -coverprofile=coverage.txt -covermode=count
     - cd ..
+    - cd q && go test -v -coverprofile=coverage.txt -covermode=count
+    - cd ..
     - cat fetch/coverage.txt >> coverage.txt
+    - cat q/coverage.txt >> coverage.txt
     - sudo pip install codecov
     - codecov --token=$$codecovToken
 publish:

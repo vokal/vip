@@ -34,6 +34,7 @@ var (
 	authToken string
 	origins   []string
 	limit     int64
+	hostname  string
 	verbose   *bool   = flag.Bool("verbose", false, "verbose logging")
 	httpport  *string = flag.String("httpport", "8080", "target port")
 	secure    bool    = false
@@ -106,6 +107,7 @@ func init() {
 		log.Println("No ALLOWED_ORIGIN set, CORS support is disabled.")
 	} else {
 		origins = strings.Split(allowedOrigin, ",")
+		log.Printf("CORS enabled; browser-based requests are accepted from: %v.\n", origins)
 	}
 
 	limitSetting := os.Getenv("VIP_SIZE_LIMIT")
@@ -117,6 +119,10 @@ func init() {
 			limit = 5
 		}
 	}
+	log.Printf("Max file size is set at %dMB.\n", limit)
+
+	hostname = os.Getenv("URI_HOSTNAME")
+	log.Printf("Hostname is set to \"%s\".\n", hostname)
 
 	r := mux.NewRouter()
 	r.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
