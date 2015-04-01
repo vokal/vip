@@ -15,7 +15,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -184,7 +183,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	uri := r.URL
 
 	if r.URL.Host == "" {
-		uri.Host = os.Getenv("URI_HOSTNAME")
+		uri.Host = hostname
 		if secure {
 			uri.Scheme = "https"
 		} else {
