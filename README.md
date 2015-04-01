@@ -1,5 +1,7 @@
 # VOKAL Image Proxy
 
+[![codecov.io](https://codecov.io/github/vokal/vip/coverage.svg?token=lXu2ikBoec&branch=master)](https://codecov.io/github/vokal/vip?branch=master) [![Build Status](https://drone.vokal.io/api/badge/github.com/vokal/vip/status.svg?branch=master)](https://drone.vokal.io/github.com/vokal/vip)
+
 `vip` is an image proxy designed for easily resizing and caching images.
 
 
