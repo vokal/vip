@@ -76,7 +76,7 @@ To configure CORS support for browser-based clients, supply a comma separated li
 Cloudfront CDN setup a custom origin with the FQDN of your proxy, and also permit `POST` HTTP 
 methods on the distribution.
 
-![alt text](https://images.vokalinteractive.com/vokalvip/c528c0a28a980402a236267e60009422?s=650 "VIP was here")
+![alt text](https://images.vokal.io/vokalvip/c528c0a28a980402a236267e60009422?s=650 "VIP was here")
 
 
 ## Maintainer
