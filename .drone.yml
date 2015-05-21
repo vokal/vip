@@ -26,8 +26,6 @@ script:
     - cd ..
     - cat fetch/coverage.txt >> coverage.txt
     - cat q/coverage.txt >> coverage.txt
-    - sudo pip install codecov
-    - codecov --token=$$codecovToken
 publish:
     docker:
         docker_server: docker-build.vokal.io
