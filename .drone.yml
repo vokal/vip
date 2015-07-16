@@ -8,6 +8,7 @@ script:
     - sudo apt-get update -qq
     - sudo apt-get -y install bzr mercurial python-pip
     - sudo apt-get -y install automake build-essential git gobject-introspection libglib2.0-dev libjpeg-turbo8-dev libpng12-dev gtk-doc-tools
+    - git clone  --depth=50 --recursive git@github.com:vokal/q.git $GOPATH/src/github.com/vokal/q
     - git clone https://github.com/jcupitt/libvips.git
     - cd libvips
     - ./bootstrap.sh
