@@ -12,7 +12,6 @@ import (
 	"strings"
 	"vip/fetch"
 	"vip/peer"
-	"vip/q"
 	"vip/store"
 
 	"github.com/bradfitz/http2"
@@ -20,6 +19,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/s3"
+	"github.com/vokal/q"
 )
 
 const (
