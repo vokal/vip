@@ -12,8 +12,11 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"os"
+	"net/url"
+	"path/filepath"
+	"strings"
 	"time"
+
 	"vip/fetch"
 
 	"github.com/golang/groupcache"
@@ -34,26 +37,50 @@ type Uploadable struct {
 	Length int64
 }
 
+type WarmupRequest string
+
 type verifyAuth func(http.ResponseWriter, *http.Request)
 
+func (j *WarmupRequest) Run() {
+	resp, _ := http.Get(string(*j))
+	defer resp.Body.Close()
+}
+
 func (h verifyAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Enable cross-origin requests
-	if domain := os.Getenv("ALLOWED_ORIGIN"); domain != "" {
-		if origin := r.Header.Get("Origin"); origin == domain {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
+	cors := false
+	token := false
+
+	origin, err := url.Parse(r.Header.Get("Origin"))
+	if err != nil {
+		origin := url.URL{}
+		origin.Host = ""
+	}
+
+	host := strings.Split(origin.Host, ":")[0]
+
+	for _, pattern := range origins {
+		match, _ := filepath.Match(pattern, host)
+		if match {
+			cors = true
+			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 			w.Header().Set("Access-Control-Allow-Headers",
 				"Accept, Content-Type, Content-Length, Accept-Encoding, X-Vip-Token, Authorization")
-		}
-	} else {
-		auth := r.Header.Get("X-Vip-Token")
-		if auth != authToken {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
+			break
 		}
 	}
 
-	if r.Method == "OPTIONS" {
+	auth := r.Header.Get("X-Vip-Token")
+	if auth == authToken {
+		token = true
+	}
+
+	if !cors && !token {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if cors && r.Method == "OPTIONS" {
 		return
 	}
 
@@ -67,6 +94,26 @@ func fileKey(bucket string, width int, height int) string {
 	hash := md5.New()
 	io.WriteString(hash, key)
 	return fmt.Sprintf("%x-%dx%d", hash.Sum(nil), width, height)
+}
+
+func makeWarmupRequest(path, query string) WarmupRequest {
+	var port string
+	if secure {
+		port = "443"
+	} else {
+		port = "8080"
+	}
+	return WarmupRequest(fmt.Sprintf("localhost:%s%s?%s", port, path, query))
+}
+
+func handleWarmup(w http.ResponseWriter, r *http.Request) {
+
+	path := strings.Replace(r.URL.Path, "warmup/", "", 1)
+	for _, v := range r.Header["X-Vip-Warmup"] {
+		job := makeWarmupRequest(path, v)
+		Queue.Push(&job)
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func handleImageRequest(w http.ResponseWriter, r *http.Request) {
@@ -101,10 +148,6 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vars := mux.Vars(r)
-	bucket := vars["bucket_id"]
-	// Set a hard limit in MB on files
-	var limit int64 = 5
 	if r.ContentLength > limit<<20 {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
@@ -121,12 +164,15 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	vars := mux.Vars(r)
+	bucket := vars["bucket_id"]
 	mime := r.Header.Get("Content-Type")
 
 	data, err := processFile(r.Body, mime, bucket)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+
 	r.Body.Close()
 
 	err = storage.PutReader(bucket, data.Key, data.Data,
@@ -139,7 +185,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	uri := r.URL
 
 	if r.URL.Host == "" {
-		uri.Host = os.Getenv("URI_HOSTNAME")
+		uri.Host = hostname
 		if secure {
 			uri.Scheme = "https"
 		} else {
@@ -155,6 +201,11 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(UploadResponse{
 		Url: uri.String(),
 	})
+
+	for _, v := range r.Header["X-Vip-Warmup"] {
+		job := makeWarmupRequest(uri.Path, v)
+		Queue.Push(&job)
+	}
 }
 
 func handlePing(w http.ResponseWriter, r *http.Request) {

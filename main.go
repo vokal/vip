@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
+	"strings"
 	"vip/fetch"
 	"vip/peer"
 	"vip/store"
@@ -17,6 +19,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/s3"
+	"github.com/vokal/q"
 )
 
 const (
@@ -29,10 +32,13 @@ var (
 	peers     peer.CachePool
 	storage   store.ImageStore
 	authToken string
-
-	verbose  *bool   = flag.Bool("verbose", false, "verbose logging")
-	httpport *string = flag.String("httpport", "8080", "target port")
-	secure   bool    = false
+	origins   []string
+	limit     int64
+	hostname  string
+	verbose   *bool   = flag.Bool("verbose", false, "verbose logging")
+	httpport  *string = flag.String("httpport", "8080", "target port")
+	secure    bool    = false
+	Queue     q.Queue
 )
 
 func listenHttp() {
@@ -89,14 +95,38 @@ func init() {
 	}
 
 	secure = hasCert && hasKey
+	Queue = q.New(100)
 
-	r := mux.NewRouter()
 	authToken = os.Getenv("AUTH_TOKEN")
 	if authToken == "" {
 		log.Println("No AUTH_TOKEN parameter provided, uploads are insecure")
 	}
 
+	allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
+	if allowedOrigin == "" {
+		log.Println("No ALLOWED_ORIGIN set, CORS support is disabled.")
+	} else {
+		origins = strings.Split(allowedOrigin, ",")
+		log.Printf("CORS enabled; browser-based requests are accepted from: %v.\n", origins)
+	}
+
+	limitSetting := os.Getenv("VIP_SIZE_LIMIT")
+	if limitSetting == "" {
+		limit = 5
+	} else {
+		limit, err = strconv.ParseInt(limitSetting, 10, 64)
+		if err != nil {
+			limit = 5
+		}
+	}
+	log.Printf("Max file size is set at %dMB.\n", limit)
+
+	hostname = os.Getenv("URI_HOSTNAME")
+	log.Printf("Hostname is set to \"%s\".\n", hostname)
+
+	r := mux.NewRouter()
 	r.Handle("/upload/{bucket_id}", verifyAuth(handleUpload))
+	r.HandleFunc("/{bucket_id}/{image_id}/warmup", handleWarmup)
 	r.HandleFunc("/{bucket_id}/{image_id}", handleImageRequest)
 	r.HandleFunc("/ping", handlePing)
 	http.Handle("/", r)
@@ -143,7 +173,7 @@ func main() {
 
 	go peers.Listen()
 	go listenHttp()
-
+	go Queue.Start(4)
 	log.Println("Cache listening on port :" + peers.Port())
 	s := &http.Server{
 		Addr:    ":" + peers.Port(),
