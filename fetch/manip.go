@@ -93,7 +93,7 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 
 		minDimension := int(math.Min(float64(image.Bounds().Size().X), float64(image.Bounds().Size().Y)))
 
-		if minDimension < options.Width {
+		if minDimension < options.Width || options.Width == 0 {
 			options.Width = minDimension
 		}
 
