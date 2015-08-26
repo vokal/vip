@@ -171,6 +171,25 @@ func (s *ResizeSuite) TestResizeOversizedImageSquare(c *C) {
 	c.Check(image.Bounds().Size().Y, Equals, 150)
 }
 
+func (s *ResizeSuite) TestCropNoResize(c *C) {
+	file, err := ioutil.ReadFile("test/awesome-small.jpg")
+	c.Assert(err, IsNil)
+
+	ctx := &fetch.CacheContext{
+		Width: 0,
+		Crop:  true,
+	}
+
+	buf := bytes.NewReader(file)
+	resized, err := fetch.Resize(buf, ctx)
+	c.Check(err, IsNil)
+
+	image, _, err := image.Decode(resized)
+	c.Check(err, IsNil)
+	c.Check(image.Bounds().Size().X, Equals, 150)
+	c.Check(image.Bounds().Size().Y, Equals, 150)
+}
+
 func (s *ResizeSuite) TestResizeNoExifImage(c *C) {
 	file, err := ioutil.ReadFile("test/AWESOME.jpg")
 	c.Assert(err, IsNil)
