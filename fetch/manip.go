@@ -2,11 +2,12 @@ package fetch
 
 import (
 	"bytes"
+	"errors"
 	"image"
+	"image/png"
 	"io"
 	"io/ioutil"
-	"image/png"
-	"errors"
+	"math"
 
 	"github.com/daddye/vips"
 	"github.com/disintegration/imaging"
@@ -83,7 +84,20 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 	}
 
 	if c.Crop {
-		options.Height = c.Width
+		data := bytes.NewReader(raw)
+
+		image, _, err := image.Decode(data)
+		if err != nil {
+			return nil, err
+		}
+
+		minDimension := int(math.Min(float64(image.Bounds().Size().X), float64(image.Bounds().Size().Y)))
+
+		if minDimension < options.Width || options.Width == 0 {
+			options.Width = minDimension
+		}
+
+		options.Height = options.Width
 	}
 
 	res, err := vips.Resize(raw, options)
@@ -100,7 +114,7 @@ func ResizeGif(src io.Reader, c *CacheContext) (io.Reader, error) {
 		return nil, err
 	}
 	if format != "gif" {
-	    return nil, errors.New("Aborted attempt to resize another type as a gif")
+		return nil, errors.New("Aborted attempt to resize another type as a gif")
 	}
 
 	pngBuf := new(bytes.Buffer)

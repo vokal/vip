@@ -3,9 +3,9 @@ package main
 import (
 	"bytes"
 	"image"
+	_ "image/gif"
 	"image/jpeg"
 	_ "image/png"
-	_ "image/gif"
 	"io/ioutil"
 	"vip/fetch"
 	"vip/test"
@@ -142,9 +142,52 @@ func (s *ResizeSuite) TestResizeImageSquare(c *C) {
 
 		image, _, err := image.Decode(resized)
 		c.Check(err, IsNil)
+
+		if width > 768 {
+			width = 768
+		}
+
 		c.Check(image.Bounds().Size().X, Equals, width)
 		c.Check(image.Bounds().Size().Y, Equals, width)
 	}
+}
+
+func (s *ResizeSuite) TestResizeOversizedImageSquare(c *C) {
+	file, err := ioutil.ReadFile("test/awesome-small.jpg")
+	c.Assert(err, IsNil)
+
+	ctx := &fetch.CacheContext{
+		Width: 400,
+		Crop:  true,
+	}
+
+	buf := bytes.NewReader(file)
+	resized, err := fetch.Resize(buf, ctx)
+	c.Check(err, IsNil)
+
+	image, _, err := image.Decode(resized)
+	c.Check(err, IsNil)
+	c.Check(image.Bounds().Size().X, Equals, 150)
+	c.Check(image.Bounds().Size().Y, Equals, 150)
+}
+
+func (s *ResizeSuite) TestCropNoResize(c *C) {
+	file, err := ioutil.ReadFile("test/awesome-small.jpg")
+	c.Assert(err, IsNil)
+
+	ctx := &fetch.CacheContext{
+		Width: 0,
+		Crop:  true,
+	}
+
+	buf := bytes.NewReader(file)
+	resized, err := fetch.Resize(buf, ctx)
+	c.Check(err, IsNil)
+
+	image, _, err := image.Decode(resized)
+	c.Check(err, IsNil)
+	c.Check(image.Bounds().Size().X, Equals, 150)
+	c.Check(image.Bounds().Size().Y, Equals, 150)
 }
 
 func (s *ResizeSuite) TestResizeNoExifImage(c *C) {
@@ -174,7 +217,6 @@ func (s *ResizeSuite) TestResizeStaticGif(c *C) {
 	for width, _ := range sizes {
 		ctx := &fetch.CacheContext{
 			Width: width,
-			Crop:  true,
 		}
 
 		buf := bytes.NewReader(file)
@@ -184,7 +226,6 @@ func (s *ResizeSuite) TestResizeStaticGif(c *C) {
 		image, _, err := image.Decode(resized)
 		c.Check(err, IsNil)
 		c.Check(image.Bounds().Size().X, Equals, width)
-		c.Check(image.Bounds().Size().Y, Equals, width)
 	}
 }
 
@@ -195,7 +236,6 @@ func (s *ResizeSuite) TestResizeAnimatedGif(c *C) {
 	for width, _ := range sizes {
 		ctx := &fetch.CacheContext{
 			Width: width,
-			Crop:  true,
 		}
 
 		buf := bytes.NewReader(file)
@@ -205,7 +245,6 @@ func (s *ResizeSuite) TestResizeAnimatedGif(c *C) {
 		image, _, err := image.Decode(resized)
 		c.Check(err, IsNil)
 		c.Check(image.Bounds().Size().X, Equals, width)
-		c.Check(image.Bounds().Size().Y, Equals, width)
 	}
 }
 
