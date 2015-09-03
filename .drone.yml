@@ -25,3 +25,6 @@ script:
     - cd ..
     - cd q && go test -v -coverprofile=coverage.txt -covermode=count
     - cd ..
+    - export GITHASH=$(git rev-parse HEAD)
+    - export CVR_TOKEN=$$cvrToken
+    - curl -F coverage=@coverage.txt "https://cvr.vokal.io/coverage?token=$CVR_TOKEN&commit=$GITHASH&coveragetype=lcov"
