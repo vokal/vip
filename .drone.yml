@@ -3,6 +3,7 @@ env:
     - GOPATH=/var/cache/drone
     - PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 script:
+    - export GITHASH=$(git rev-parse HEAD)
     - cd .. && mv vip /var/cache/drone/src
     - cd /var/cache/drone/src/vip
     - sudo apt-get update -qq
@@ -23,5 +24,6 @@ script:
     - go test -gocheck.v -coverprofile=coverage.txt -covermode=count
     - cd fetch && go test -v -coverprofile=coverage.txt -covermode=count
     - cd ..
-    - cd q && go test -v -coverprofile=coverage.txt -covermode=count
-    - cd ..
+    - cat fetch/coverage.txt >> coverage.txt
+    - export CVR_TOKEN=$$cvrToken
+    - curl -F coverage=@coverage.txt "https://cvr.vokal.io/coverage?token=$CVR_TOKEN&commit=$GITHASH&coveragetype=lcov"
