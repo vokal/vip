@@ -26,4 +26,4 @@ script:
     - cd ..
     - cat fetch/coverage.txt >> coverage.txt
     - export CVR_TOKEN=$$cvrToken
-    - curl -F coverage=@coverage.txt "https://cvr.vokal.io/coverage?token=$CVR_TOKEN&commit=$GITHASH&coveragetype=gocover"
+    - curl -F coverage=@coverage.txt "https://cvr.vokal.io/coverage?token=$CVR_TOKEN&commit=$GITHASH&coveragetype=gocover&removepath=vip/"
