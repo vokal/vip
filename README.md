@@ -17,9 +17,9 @@ You can resize an image on the fly by providing an `?s=X` parameter that specifi
 a maximum width for the image. Resized images may also be center-cropped by passing `?c=true` in the querystring. The resiezed image or thumbnail will then be cached to both `groupcache` and S3. If the image leaves the in-memory cache it will not need to be resized again.
 
 For example:
-- If you want to resize an image down to a 500 pixel size:
+- If you want to resize an image down to a 500 pixel size:  
   `http://images.example.com/mybucket/5272a0e7d0d9813e21?s=500`
-- If you needed a square thumbnail of the same image:
+- If you needed a square thumbnail of the same image:  
   `images.example.com/mybucket/5272a0e7d0d9813e21?s=160&c=true`. 
 
 For performance reasons, `vip` has a configurable maximum width, set via the environment
