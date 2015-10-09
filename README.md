@@ -89,7 +89,7 @@ For serving via HTTPS (recommended), `vip` expects to find an SSL certificate as
 - `/etc/vip/application.pem`
 - `/etc/vip/application.key`
 
-By default, `vip` will also response to HTTP/2 requests; however, some mobile clients have incomplete implementations and may fail. You can turn off HTTP/2 support by setting `DISABLE_HTTP2` to `True`.
+By default, `vip` will also respond to HTTP/2 requests; however, some mobile clients have incomplete implementations and may fail. You can turn off HTTP/2 support by setting `DISABLE_HTTP2` to `True`.
 
 
 ## Cloudfront
