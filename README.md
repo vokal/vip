@@ -14,7 +14,13 @@ Images are served up with a URI that contains a bucket name, as well as a unique
 When images are requested they are placed into an in-memory cache to make repeated requests for that image faster.
 
 You can resize an image on the fly by providing an `?s=X` parameter that specifies
-a maximum width for the image. For example, if you want to resize an image down to a 160 pixel thumbnail: `http://images.example.com/mybucket/5272a0e7d0d9813e21?s=160`. Resized images may also be center-cropped by passing `?c=true` in the querystring: `images.example.com/mybucket/5272a0e7d0d9813e21?s=160&c=true`. The thumbnail will then be cached to both `groupcache` and S3. If the image leaves the in-memory cache it will not need to be resized again.
+a maximum width for the image. Resized images may also be center-cropped by passing `?c=true` in the querystring. The resiezed image or thumbnail will then be cached to both `groupcache` and S3. If the image leaves the in-memory cache it will not need to be resized again.
+
+For example:
+- If you want to resize an image down to a 500 pixel size:
+  `http://images.example.com/mybucket/5272a0e7d0d9813e21?s=500`
+- If you needed a square thumbnail of the same image:
+  `images.example.com/mybucket/5272a0e7d0d9813e21?s=160&c=true`. 
 
 For performance reasons, `vip` has a configurable maximum width, set via the environment
 variable `VIP_MAX_WIDTH`. You'll want to balance your own app's needs with memory needed to
