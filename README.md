@@ -7,35 +7,23 @@
 
 ## Usage
 
-Images are served up with a URI that contains a bucket name, as well as a 
-unique identifier for the image:
-        
-        images.example.com/mybucket/5272a0e7d0d9813e21
+### Getting resized images
 
-When images are requested they are placed into an in-memory cache to make repeated
-requests for that image faster.
+Images are served up with a URI that contains a bucket name, as well as a unique identifier for the image: `http://images.example.com/mybucket/5272a0e7d0d9813e21`.
+
+When images are requested they are placed into an in-memory cache to make repeated requests for that image faster.
 
 You can resize an image on the fly by providing an `?s=X` parameter that specifies
-a maximum width for the image. For example, if you want to resize an image down to a 160 pixel thumbnail:
-        
-        images.example.com/mybucket/5272a0e7d0d9813e21?s=160
-
-Resized images may also be center-cropped by passing `?c=true` in the querystring:
-        
-        images.example.com/mybucket/5272a0e7d0d9813e21?s=160&c=true
-
-The thumbnail will then be cached to both `groupcache` and S3. If the image leaves
-the in-memory cache it will not need to be resized again.
+a maximum width for the image. For example, if you want to resize an image down to a 160 pixel thumbnail: `http://images.example.com/mybucket/5272a0e7d0d9813e21?s=160`. Resized images may also be center-cropped by passing `?c=true` in the querystring: `images.example.com/mybucket/5272a0e7d0d9813e21?s=160&c=true`. The thumbnail will then be cached to both `groupcache` and S3. If the image leaves the in-memory cache it will not need to be resized again.
 
 For performance reasons, `vip` has a configurable maximum width, set via the environment
 variable `VIP_MAX_WIDTH`. You'll want to balance your own app's needs with memory needed to
 cache larger images, though the default max is a reasonable 720 pixels.
 
-You can also limit the maximum filesize that `vip` can accept by specifying `VIP_SIZE_LIMIT` in megabytes (e.g. `VIP_SIZE_LIMIT=10`). The default is 5MB, which is sufficient for JPEG photos from most mobile devices.
+### Uploading images
 
 Images are uploaded through `vip` to generate the serving URL. Upload requests should
-have the image encoded as the body. `Content-Type` and authentication headers will also
-need to be provided. The route for uploads is: `images.example.com/upload/mybucket`
+have the raw binary data of the image encoded as the body. `Content-Type` and authentication headers will also need to be provided. The route for uploads is: `images.example.com/upload/mybucket`.
 
 This will upload the supplied image into `mybucket` and return a JSON-encoded serving URL:
 ```json
@@ -43,6 +31,16 @@ This will upload the supplied image into `mybucket` and return a JSON-encoded se
     "url": "http://images.example.com/mybucket/5272a0e7d0d9813e21"
 }
 ```
+
+You can also limit the maximum filesize that `vip` can accept by specifying `VIP_SIZE_LIMIT` in megabytes (e.g. `VIP_SIZE_LIMIT=10`). The default is 5MB, which is generally sufficient for JPEG photos from most mobile devices.
+
+### Pre-warming the cache
+
+For mobile clients that use one or more common sizes, those sizes can be cached in the background while uploading a new image. Simply set a comma-delimited list of query parameters for each expected size in a `X-Vip-Warmup` header:
+```html
+X-Vip-Warmup: s=250&c=true,s=500,s=1024
+```
+This will automatically generate a 250x250px thumbnail, as well as 500px wide and 1024px wide versions of the uploaded image, and all three will be ready in the cache for immediate retreival.
 
 
 ## Deployment
@@ -68,6 +66,24 @@ $ docker run -e AUTH_TOKEN=... -e AWS_SECRET_ACCESS_KEY=... \
 ```
 
 To configure CORS support for browser-based clients, supply a comma separated list (no spaces) of allowed hosts in the environment variable `ALLOWED_ORIGIN`. Setting `ALLOWED_ORIGN=*` allows any host; setting `ALLOWED_ORIGIN=*.project.com` allows any subdomain of project.com. For staging setups, you likely want to allow `localhost` as well, or any upload tests from drone or a local dev environment will fail. Ex: `ALLOWED_ORIGIN=localhost,*.project.com`. (_Note:_ Requests from an allowed origin _do not_ require an `X-Vip-Token`.)
+
+
+## Configuration Summary
+
+- `AWS_ACCESS_KEY`: The access key for an IAM user or role with access to S3 bucket(s)
+- `AWS_SECRET_ACCESS_KEY`: The secret key for an IAM user or role with access to S3 bucket(s)
+- `AWS_REGION`: The AWS region in which image storage buckets are configured (default `us-east-1`)
+- `URI_HOSTNAME`: The hostname used to build image URLs, e.g. `images.example.com`
+- `AUTH_TOKEN`: A secret token that non-browser clients can use to autheticate for uploads. If no token is supplied, anyone could upload to your image proxy
+- `ALLOWED_ORIGIN`: a comma-delimited list of hostnames to accept CORS requests from browser-based clients, e.g. `www.example.com,*.example2.com` will accept uplaod requests from pages originating from www.example.com or any subdomain of example2.com. If this is not set, CORS is disabled and will likely fail for any upload requests from a browser.
+- `VIP_SIZE_LIMIT`: A maximum file-size limit in megabytes (default `5`)
+- `VIP_MAX_WIDTH`: A maximum width for resized images in pixels (default `720`)
+
+For serving via HTTPS (recommended), `vip` expects to find an SSL certificate as well as the matching private key in the following locations:
+- `/etc/vip/application.pem`
+- `/etc/vip/application.key`
+
+By default, `vip` will also response to HTTP/2 requests; however, some mobile clients have incomplete implementations and may fail. You can turn off HTTP/2 support by setting `DISABLE_HTTP2` to `True`.
 
 
 ## Cloudfront
