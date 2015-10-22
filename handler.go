@@ -148,6 +148,8 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer r.Body.Close()
+
 	if r.ContentLength > limit<<20 {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
@@ -172,8 +174,6 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-
-	r.Body.Close()
 
 	err = storage.PutReader(bucket, data.Key, data.Data,
 		data.Length, r.Header.Get("Content-Type"))
