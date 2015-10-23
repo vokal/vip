@@ -2,6 +2,7 @@ image: bradrydzewski/go:1.3
 env:
     - GOPATH=/var/cache/drone
     - PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+    - CVR_TOKEN=$$cvrToken
 script:
     - export GITHASH=$(git rev-parse HEAD)
     - cd .. && mv vip /var/cache/drone/src
@@ -25,5 +26,4 @@ script:
     - cd fetch && go test -v -coverprofile=coverage.txt -covermode=count
     - cd ..
     - cat fetch/coverage.txt >> coverage.txt
-    - export CVR_TOKEN=$$cvrToken
-    - curl -F coverage=@coverage.txt "https://cvr.vokal.io/coverage?token=$CVR_TOKEN&commit=$GITHASH&coveragetype=gocover&removepath=vip/"
+    - curl -sSL https://cvr.vokal.io/upload | bash

@@ -12,6 +12,7 @@ RUN apt-get install -y ca-certificates libvips37 libxml2-dev \
     && make install \
     && ldconfig
 RUN mkdir /etc/vip
+RUN ln -s /usr/lib/libvips.so.42 /usr/lib/libvips.so.38
 
 ADD ./vip ./vip
 
