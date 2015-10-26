@@ -26,4 +26,5 @@ script:
     - cd fetch && go test -v -coverprofile=coverage.txt -covermode=count
     - cd ..
     - cat fetch/coverage.txt >> coverage.txt
+    - cat coverage.txt
     - curl -sSL https://cvr.vokal.io/upload | bash
