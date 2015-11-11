@@ -13,7 +13,7 @@ Images are served up with a URI that contains a bucket name, as well as a unique
 
 When images are requested they are placed into an in-memory cache to make repeated requests for that image faster.
 
-You can resize an image on the fly by providing an `?s=<integer>` parameter that specifies a maximum width for the image in pixels. Resized images may also be center-cropped by passing `?c=true` in the querystring. The resiezed image or thumbnail will then be cached to both `groupcache` and S3. If the image leaves the in-memory cache it will not need to be resized again.
+You can resize an image on the fly by providing an `?s=X` parameter (where `X` is an integer) that specifies a maximum width for the image in pixels. Resized images may also be center-cropped by passing `?c=true` in the querystring. The resized image or thumbnail will then be cached to both `groupcache` and S3. If the image leaves the in-memory cache it will not need to be resized again.
 
 For example:
 - If you want to resize an image down to a 500 pixel size:  
