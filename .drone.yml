@@ -1,11 +1,11 @@
 build:
     image: bradrydzewski/go:1.3
     environment:
-        - GOPATH=/var/cache/drone
-        - PATH=$GOPATH/bin:$GOROOT/bin:$PATH
         - REPO_OWNER=vokal
         - REPO_NAME=vip
     commands:
+        - export GOPATH=/var/cache/drone
+        - export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
         - export GITHASH=$(git rev-parse HEAD)
         - cd .. && mv vip /var/cache/drone/src
         - cd /var/cache/drone/src/vip
