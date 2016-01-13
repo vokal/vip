@@ -7,8 +7,6 @@ build:
         - export GOPATH=/var/cache/drone
         - export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
         - export GITHASH=$(git rev-parse HEAD)
-        - cd .. && mv vip /var/cache/drone/src
-        - cd /var/cache/drone/src/vip
         - sudo apt-get update -qq
         - sudo apt-get -y install bzr mercurial python-pip
         - sudo apt-get -y install automake build-essential git gobject-introspection libglib2.0-dev libjpeg-turbo8-dev libpng12-dev gtk-doc-tools
