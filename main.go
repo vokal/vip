@@ -10,9 +10,10 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"vip/fetch"
-	"vip/peer"
-	"vip/store"
+
+	"github.com/vokal/vip/fetch"
+	"github.com/vokal/vip/peer"
+	"github.com/vokal/vip/store"
 
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"

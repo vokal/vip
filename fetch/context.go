@@ -5,7 +5,8 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"vip/store"
+
+	"github.com/vokal/vip/store"
 )
 
 type CacheContext struct {

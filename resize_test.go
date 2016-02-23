@@ -7,8 +7,9 @@ import (
 	"image/jpeg"
 	_ "image/png"
 	"io/ioutil"
-	"vip/fetch"
-	"vip/test"
+
+	"github.com/vokal/vip/fetch"
+	"github.com/vokal/vip/test"
 
 	. "gopkg.in/check.v1"
 )
