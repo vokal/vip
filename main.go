@@ -10,11 +10,11 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"vip/fetch"
-	"vip/peer"
-	"vip/store"
 
-	"github.com/bradfitz/http2"
+	"github.com/vokal/vip/fetch"
+	"github.com/vokal/vip/peer"
+	"github.com/vokal/vip/store"
+
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/goamz/aws"
@@ -49,10 +49,6 @@ func listenHttp() {
 	if secure {
 		log.Println("Serving via TLS")
 		server := &http.Server{Addr: port, Handler: nil}
-
-		if os.Getenv("DISABLE_HTTP2") == "" {
-			http2.ConfigureServer(server, nil)
-		}
 
 		if err := server.ListenAndServeTLS(CertFilePath, KeyFilePath); err != nil {
 			log.Fatalf("Error starting server: %s\n", err.Error())

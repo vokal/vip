@@ -1,30 +1,35 @@
-image: bradrydzewski/go:1.3
-env:
-    - GOPATH=/var/cache/drone
-    - PATH=$GOPATH/bin:$GOROOT/bin:$PATH
-    - CVR_TOKEN=$$cvrToken
-script:
-    - export GITHASH=$(git rev-parse HEAD)
-    - cd .. && mv vip /var/cache/drone/src
-    - cd /var/cache/drone/src/vip
-    - sudo apt-get update -qq
-    - sudo apt-get -y install bzr mercurial python-pip
-    - sudo apt-get -y install automake build-essential git gobject-introspection libglib2.0-dev libjpeg-turbo8-dev libpng12-dev gtk-doc-tools
-    - git clone  --depth=50 --recursive git@github.com:vokal/q.git $GOPATH/src/github.com/vokal/q
-    - git clone https://github.com/jcupitt/libvips.git
-    - cd libvips
-    - ./bootstrap.sh
-    - ./configure --enable-debug=no --without-python --without-fftw --without-libexif --without-libgf --without-little-cms --without-orc --without-pango --prefix=/usr
-    - make
-    - sudo make install
-    - sudo ldconfig
-    - cd ..
-    - go get
-    - go get -t
-    - go build
-    - go test -gocheck.v -coverprofile=coverage.txt -covermode=count
-    - cd fetch && go test -v -coverprofile=coverage.txt -covermode=count
-    - cd ..
-    - cat fetch/coverage.txt >> coverage.txt && rm fetch/coverage.txt
-    - cat coverage.txt
-    - curl -sSL https://cvr.vokal.io/upload | bash
+build:
+    image: golang
+    environment:
+        - ENVIRONMENT=drone
+        - REPO_OWNER=vokal
+        - REPO_NAME=vip
+    commands:
+        - apt-get update -qq
+        - apt-get install -y libvips38 libxml2-dev automake build-essential git gobject-introspection libglib2.0-dev libjpeg62-turbo-dev libpng12-dev gtk-doc-tools
+        - git clone https://github.com/jcupitt/libvips.git
+        - cd libvips
+        - ./bootstrap.sh
+        - ./configure --enable-debug=no --without-python --without-fftw --without-libexif --without-libgf --without-little-cms --without-orc --without-pango --prefix=/usr
+        - make
+        - make install
+        - ldconfig
+        - cd ..
+        - go get
+        - go get -t
+        - go build
+        - go test -gocheck.v -coverprofile=coverage.txt -covermode=count
+        - cd fetch && go test -v -coverprofile=coverage.txt -covermode=count
+        - cd ..
+        - cat fetch/coverage.txt >> coverage.txt && rm fetch/coverage.txt
+        - cat coverage.txt
+        - export CVR_URL="https://cvr.vokal.io/coverage?commit=$DRONE_COMMIT&owner=$REPO_OWNER&repo=$REPO_NAME&coveragetype=cobertura"
+        - curl -F coverage=@coverage.txt $CVR_URL
+publish:
+    docker:
+        username: vokal
+        password: $$DOCKER_PASS
+        email: $$DOCKER_EMAIL
+        repo: vokal/vip
+        when:
+            branch: master
