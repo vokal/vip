@@ -23,8 +23,7 @@ build:
         - cd ..
         - cat fetch/coverage.txt >> coverage.txt && rm fetch/coverage.txt
         - cat coverage.txt
-        - export GIT_HASH=$(git rev-parse HEAD)
-        - export CVR_URL="https://cvr.vokal.io/coverage?commit=$GIT_HASH&owner=$REPO_OWNER&repo=$REPO_NAME&coveragetype=cobertura"
+        - export CVR_URL="https://cvr.vokal.io/coverage?commit=$DRONE_COMMIT&owner=$REPO_OWNER&repo=$REPO_NAME&coveragetype=cobertura"
         - curl -F coverage=@coverage.txt $CVR_URL
 publish:
     docker:
