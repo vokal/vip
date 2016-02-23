@@ -25,4 +25,4 @@ build:
         - cat coverage.txt
         - export GIT_HASH=$(git rev-parse HEAD)
         - export CVR_URL="https://cvr.vokal.io/coverage?commit=$GIT_HASH&owner=$REPO_OWNER&repo=$REPO_NAME&coveragetype=cobertura"
-        - curl -F coverage=@coverage.xml $CVR_URL
+        - curl -F coverage=@coverage.txt $CVR_URL
