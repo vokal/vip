@@ -28,7 +28,7 @@ build:
 publish:
     docker:
         username: vokal
-        password: $$DOCKER_PASS
+        password: $$dockerPass
         email: docker@vokal.io
         repo: vokal/vip
         when:
