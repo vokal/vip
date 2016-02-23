@@ -26,3 +26,11 @@ build:
         - export GIT_HASH=$(git rev-parse HEAD)
         - export CVR_URL="https://cvr.vokal.io/coverage?commit=$GIT_HASH&owner=$REPO_OWNER&repo=$REPO_NAME&coveragetype=cobertura"
         - curl -F coverage=@coverage.txt $CVR_URL
+publish:
+    docker:
+        username: vokal
+        password: $$DOCKER_PASS
+        email: $$DOCKER_EMAIL
+        repo: vokal/vip
+        when:
+            branch: master
