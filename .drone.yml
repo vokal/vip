@@ -29,7 +29,7 @@ publish:
     docker:
         username: vokal
         password: $$DOCKER_PASS
-        email: $$DOCKER_EMAIL
+        email: docker@vokal.io
         repo: vokal/vip
         when:
             branch: master
