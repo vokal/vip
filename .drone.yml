@@ -6,7 +6,7 @@ build:
         - REPO_NAME=vip
     commands:
         - apt-get update -qq
-        - apt-get install -y libvips38 libxml2-dev automake build-essential git gobject-introspection libglib2.0-dev libjpeg-turbo8-dev libpng12-dev gtk-doc-tools
+        - apt-get install -y libvips38 libxml2-dev automake build-essential git gobject-introspection libglib2.0-dev libjpeg62-turbo-dev libpng12-dev gtk-doc-tools
         - git clone https://github.com/jcupitt/libvips.git
         - cd libvips
         - ./bootstrap.sh
