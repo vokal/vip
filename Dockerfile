@@ -26,5 +26,5 @@ RUN ln -s /usr/lib/libvips.so.42 /usr/lib/libvips.so.38
 ADD ./vip /vip
 
 EXPOSE 8080
- 
+
 CMD /vip
