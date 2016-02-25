@@ -29,8 +29,8 @@
 		},
 		{
 			"path": "github.com/disintegration/imaging",
-			"revision": "9e67388aae65b9dc4e563beff827e19755deae6a",
-			"revisionTime": "2014-05-30T20:08:02+04:00"
+			"revision": "83458641eee6acad19ca0a4c0a3365bfd3de46c7",
+			"revisionTime": "2016-02-06T04:24:35+03:00"
 		},
 		{
 			"path": "github.com/golang/groupcache",
