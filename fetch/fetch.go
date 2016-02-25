@@ -9,7 +9,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"vip/store"
+
+	"github.com/vokal/vip/store"
 
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"

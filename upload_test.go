@@ -3,14 +3,15 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/gorilla/mux"
-	. "gopkg.in/check.v1"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"strings"
-	"vip/test"
+
+	"github.com/gorilla/mux"
+	"github.com/vokal/vip/test"
+	. "gopkg.in/check.v1"
 )
 
 var (

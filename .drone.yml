@@ -1,15 +1,12 @@
 build:
-    image: registry.vokal.io/go1.5
+    image: golang
     environment:
         - ENVIRONMENT=drone
         - REPO_OWNER=vokal
         - REPO_NAME=vip
     commands:
-        - export GITHASH=$(git rev-parse HEAD)
         - apt-get update -qq
-        - apt-get -y install bzr mercurial python-pip
-        - apt-get -y install automake build-essential git gobject-introspection libglib2.0-dev libjpeg-turbo8-dev libpng12-dev gtk-doc-tools
-        - git clone  --depth=50 --recursive git@github.com:vokal/q.git $GOPATH/src/github.com/vokal/q
+        - apt-get install -y libvips38 libxml2-dev automake build-essential git gobject-introspection libglib2.0-dev libjpeg62-turbo-dev libpng12-dev gtk-doc-tools
         - git clone https://github.com/jcupitt/libvips.git
         - cd libvips
         - ./bootstrap.sh
@@ -26,6 +23,13 @@ build:
         - cd ..
         - cat fetch/coverage.txt >> coverage.txt && rm fetch/coverage.txt
         - cat coverage.txt
-        - export GIT_HASH=$(git rev-parse HEAD)
-        - export CVR_URL="https://cvr.vokal.io/coverage?commit=$GIT_HASH&owner=$REPO_OWNER&repo=$REPO_NAME&coveragetype=cobertura"
-        - curl -F coverage=@coverage.xml $CVR_URL
+        - export CVR_URL="https://cvr.vokal.io/coverage?commit=$DRONE_COMMIT&owner=$REPO_OWNER&repo=$REPO_NAME&coveragetype=gocover"
+        - curl -F coverage=@coverage.txt $CVR_URL
+publish:
+    docker:
+        username: vokal
+        password: $$dockerPass
+        email: docker@vokal.io
+        repo: vokal/vip
+        when:
+            branch: master

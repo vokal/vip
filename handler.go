@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"vip/fetch"
+	"github.com/vokal/vip/fetch"
 
 	"github.com/golang/groupcache"
 	"github.com/gorilla/mux"
