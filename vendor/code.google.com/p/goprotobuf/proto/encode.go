@@ -37,21 +37,26 @@ package proto
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"sort"
 )
 
-// ErrRequiredNotSet is the error returned if Marshal is called with
+// RequiredNotSetError is the error returned if Marshal is called with
 // a protocol buffer struct whose required fields have not
 // all been initialized. It is also the error returned if Unmarshal is
 // called with an encoded protocol buffer that does not include all the
 // required fields.
-type ErrRequiredNotSet struct {
-	t reflect.Type
+//
+// When printed, RequiredNotSetError reports the first unset required field in a
+// message. If the field cannot be precisely determined, it is reported as
+// "{Unknown}".
+type RequiredNotSetError struct {
+	field string
 }
 
-func (e *ErrRequiredNotSet) Error() string {
-	return "proto: required fields not set in " + e.t.String()
+func (e *RequiredNotSetError) Error() string {
+	return fmt.Sprintf("proto: required field %q not set", e.field)
 }
 
 var (
@@ -100,6 +105,17 @@ func (p *Buffer) EncodeVarint(x uint64) error {
 	return nil
 }
 
+func sizeVarint(x uint64) (n int) {
+	for {
+		n++
+		x >>= 7
+		if x == 0 {
+			break
+		}
+	}
+	return n
+}
+
 // EncodeFixed64 writes a 64-bit integer to the Buffer.
 // This is the format for the
 // fixed64, sfixed64, and double protocol buffer types.
@@ -116,6 +132,10 @@ func (p *Buffer) EncodeFixed64(x uint64) error {
 	return nil
 }
 
+func sizeFixed64(x uint64) int {
+	return 8
+}
+
 // EncodeFixed32 writes a 32-bit integer to the Buffer.
 // This is the format for the
 // fixed32, sfixed32, and float protocol buffer types.
@@ -128,6 +148,10 @@ func (p *Buffer) EncodeFixed32(x uint64) error {
 	return nil
 }
 
+func sizeFixed32(x uint64) int {
+	return 4
+}
+
 // EncodeZigzag64 writes a zigzag-encoded 64-bit integer
 // to the Buffer.
 // This is the format used for the sint64 protocol buffer type.
@@ -136,12 +160,20 @@ func (p *Buffer) EncodeZigzag64(x uint64) error {
 	return p.EncodeVarint(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
 
+func sizeZigzag64(x uint64) int {
+	return sizeVarint(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+
 // EncodeZigzag32 writes a zigzag-encoded 32-bit integer
 // to the Buffer.
 // This is the format used for the sint32 protocol buffer type.
 func (p *Buffer) EncodeZigzag32(x uint64) error {
 	// use signed number to get arithmetic right shift.
 	return p.EncodeVarint(uint64((uint32(x) << 1) ^ uint32((int32(x) >> 31))))
+}
+
+func sizeZigzag32(x uint64) int {
+	return sizeVarint(uint64((uint32(x) << 1) ^ uint32((int32(x) >> 31))))
 }
 
 // EncodeRawBytes writes a count-delimited byte buffer to the Buffer.
@@ -153,12 +185,22 @@ func (p *Buffer) EncodeRawBytes(b []byte) error {
 	return nil
 }
 
+func sizeRawBytes(b []byte) int {
+	return sizeVarint(uint64(len(b))) +
+		len(b)
+}
+
 // EncodeStringBytes writes an encoded string to the Buffer.
 // This is the format used for the proto2 string type.
 func (p *Buffer) EncodeStringBytes(s string) error {
 	p.EncodeVarint(uint64(len(s)))
 	p.buf = append(p.buf, s...)
 	return nil
+}
+
+func sizeStringBytes(s string) int {
+	return sizeVarint(uint64(len(s))) +
+		len(s)
 }
 
 // Marshaler is the interface representing objects that can marshal themselves.
@@ -175,8 +217,13 @@ func Marshal(pb Message) ([]byte, error) {
 	}
 	p := NewBuffer(nil)
 	err := p.Marshal(pb)
-	if err != nil {
+	var state errorState
+	if err != nil && !state.shouldContinue(err, nil) {
 		return nil, err
+	}
+	if p.buf == nil && err == nil {
+		// Return a non-nil slice on success.
+		return []byte{}, nil
 	}
 	return p.buf, err
 }
@@ -200,7 +247,7 @@ func (p *Buffer) Marshal(pb Message) error {
 		return ErrNil
 	}
 	if err == nil {
-		err = p.enc_struct(t.Elem(), GetProperties(t.Elem()), base)
+		err = p.enc_struct(GetProperties(t.Elem()), base)
 	}
 
 	if collectStats {
@@ -208,6 +255,30 @@ func (p *Buffer) Marshal(pb Message) error {
 	}
 
 	return err
+}
+
+// Size returns the encoded size of a protocol buffer.
+func Size(pb Message) (n int) {
+	// Can the object marshal itself?  If so, Size is slow.
+	// TODO: add Size to Marshaler, or add a Sizer interface.
+	if m, ok := pb.(Marshaler); ok {
+		b, _ := m.Marshal()
+		return len(b)
+	}
+
+	t, base, err := getbase(pb)
+	if structPointer_IsNil(base) {
+		return 0
+	}
+	if err == nil {
+		n = size_struct(GetProperties(t.Elem()), base)
+	}
+
+	if collectStats {
+		stats.Size++
+	}
+
+	return
 }
 
 // Individual type encoders.
@@ -227,8 +298,40 @@ func (o *Buffer) enc_bool(p *Properties, base structPointer) error {
 	return nil
 }
 
+func size_bool(p *Properties, base structPointer) int {
+	v := *structPointer_Bool(base, p.field)
+	if v == nil {
+		return 0
+	}
+	return len(p.tagcode) + 1 // each bool takes exactly one byte
+}
+
 // Encode an int32.
 func (o *Buffer) enc_int32(p *Properties, base structPointer) error {
+	v := structPointer_Word32(base, p.field)
+	if word32_IsNil(v) {
+		return ErrNil
+	}
+	x := int32(word32_Get(v)) // permit sign extension to use full 64-bit range
+	o.buf = append(o.buf, p.tagcode...)
+	p.valEnc(o, uint64(x))
+	return nil
+}
+
+func size_int32(p *Properties, base structPointer) (n int) {
+	v := structPointer_Word32(base, p.field)
+	if word32_IsNil(v) {
+		return 0
+	}
+	x := int32(word32_Get(v)) // permit sign extension to use full 64-bit range
+	n += len(p.tagcode)
+	n += p.valSize(uint64(x))
+	return
+}
+
+// Encode a uint32.
+// Exactly the same as int32, except for no sign extension.
+func (o *Buffer) enc_uint32(p *Properties, base structPointer) error {
 	v := structPointer_Word32(base, p.field)
 	if word32_IsNil(v) {
 		return ErrNil
@@ -237,6 +340,17 @@ func (o *Buffer) enc_int32(p *Properties, base structPointer) error {
 	o.buf = append(o.buf, p.tagcode...)
 	p.valEnc(o, uint64(x))
 	return nil
+}
+
+func size_uint32(p *Properties, base structPointer) (n int) {
+	v := structPointer_Word32(base, p.field)
+	if word32_IsNil(v) {
+		return 0
+	}
+	x := word32_Get(v)
+	n += len(p.tagcode)
+	n += p.valSize(uint64(x))
+	return
 }
 
 // Encode an int64.
@@ -251,6 +365,17 @@ func (o *Buffer) enc_int64(p *Properties, base structPointer) error {
 	return nil
 }
 
+func size_int64(p *Properties, base structPointer) (n int) {
+	v := structPointer_Word64(base, p.field)
+	if word64_IsNil(v) {
+		return 0
+	}
+	x := word64_Get(v)
+	n += len(p.tagcode)
+	n += p.valSize(x)
+	return
+}
+
 // Encode a string.
 func (o *Buffer) enc_string(p *Properties, base structPointer) error {
 	v := *structPointer_String(base, p.field)
@@ -261,6 +386,17 @@ func (o *Buffer) enc_string(p *Properties, base structPointer) error {
 	o.buf = append(o.buf, p.tagcode...)
 	o.EncodeStringBytes(x)
 	return nil
+}
+
+func size_string(p *Properties, base structPointer) (n int) {
+	v := *structPointer_String(base, p.field)
+	if v == nil {
+		return 0
+	}
+	x := *v
+	n += len(p.tagcode)
+	n += sizeStringBytes(x)
+	return
 }
 
 // All protocol buffer fields are nillable, but be careful.
@@ -274,6 +410,7 @@ func isNil(v reflect.Value) bool {
 
 // Encode a message struct.
 func (o *Buffer) enc_struct_message(p *Properties, base structPointer) error {
+	var state errorState
 	structp := structPointer_GetStructPointer(base, p.field)
 	if structPointer_IsNil(structp) {
 		return ErrNil
@@ -283,7 +420,7 @@ func (o *Buffer) enc_struct_message(p *Properties, base structPointer) error {
 	if p.isMarshaler {
 		m := structPointer_Interface(structp, p.stype).(Marshaler)
 		data, err := m.Marshal()
-		if err != nil {
+		if err != nil && !state.shouldContinue(err, nil) {
 			return err
 		}
 		o.buf = append(o.buf, p.tagcode...)
@@ -291,39 +428,58 @@ func (o *Buffer) enc_struct_message(p *Properties, base structPointer) error {
 		return nil
 	}
 
-	// need the length before we can write out the message itself,
-	// so marshal into a separate byte buffer first.
-	obuf := o.buf
-	o.buf = o.bufalloc()
-
-	err := o.enc_struct(p.stype, p.sprop, structp)
-
-	nbuf := o.buf
-	o.buf = obuf
-	if err != nil {
-		o.buffree(nbuf)
-		return err
-	}
 	o.buf = append(o.buf, p.tagcode...)
-	o.EncodeRawBytes(nbuf)
-	o.buffree(nbuf)
-	return nil
+	return o.enc_len_struct(p.sprop, structp, &state)
+}
+
+func size_struct_message(p *Properties, base structPointer) int {
+	structp := structPointer_GetStructPointer(base, p.field)
+	if structPointer_IsNil(structp) {
+		return 0
+	}
+
+	// Can the object marshal itself?
+	if p.isMarshaler {
+		m := structPointer_Interface(structp, p.stype).(Marshaler)
+		data, _ := m.Marshal()
+		n0 := len(p.tagcode)
+		n1 := sizeRawBytes(data)
+		return n0 + n1
+	}
+
+	n0 := len(p.tagcode)
+	n1 := size_struct(p.sprop, structp)
+	n2 := sizeVarint(uint64(n1)) // size of encoded length
+	return n0 + n1 + n2
 }
 
 // Encode a group struct.
 func (o *Buffer) enc_struct_group(p *Properties, base structPointer) error {
+	var state errorState
 	b := structPointer_GetStructPointer(base, p.field)
 	if structPointer_IsNil(b) {
 		return ErrNil
 	}
 
 	o.EncodeVarint(uint64((p.Tag << 3) | WireStartGroup))
-	err := o.enc_struct(p.stype, p.sprop, b)
-	if err != nil {
+	err := o.enc_struct(p.sprop, b)
+	if err != nil && !state.shouldContinue(err, nil) {
 		return err
 	}
 	o.EncodeVarint(uint64((p.Tag << 3) | WireEndGroup))
-	return nil
+	return state.err
+}
+
+func size_struct_group(p *Properties, base structPointer) (n int) {
+	b := structPointer_GetStructPointer(base, p.field)
+	if structPointer_IsNil(b) {
+		return 0
+	}
+
+	n += sizeVarint(uint64((p.Tag << 3) | WireStartGroup))
+	n += size_struct(p.sprop, b)
+	n += sizeVarint(uint64((p.Tag << 3) | WireEndGroup))
+	return
 }
 
 // Encode a slice of bools ([]bool).
@@ -342,6 +498,15 @@ func (o *Buffer) enc_slice_bool(p *Properties, base structPointer) error {
 		p.valEnc(o, v)
 	}
 	return nil
+}
+
+func size_slice_bool(p *Properties, base structPointer) int {
+	s := *structPointer_BoolSlice(base, p.field)
+	l := len(s)
+	if l == 0 {
+		return 0
+	}
+	return l * (len(p.tagcode) + 1) // each bool takes exactly one byte
 }
 
 // Encode a slice of bools ([]bool) in packed format.
@@ -363,6 +528,18 @@ func (o *Buffer) enc_slice_packed_bool(p *Properties, base structPointer) error 
 	return nil
 }
 
+func size_slice_packed_bool(p *Properties, base structPointer) (n int) {
+	s := *structPointer_BoolSlice(base, p.field)
+	l := len(s)
+	if l == 0 {
+		return 0
+	}
+	n += len(p.tagcode)
+	n += sizeVarint(uint64(l))
+	n += l // each bool takes exactly one byte
+	return
+}
+
 // Encode a slice of bytes ([]byte).
 func (o *Buffer) enc_slice_byte(p *Properties, base structPointer) error {
 	s := *structPointer_Bytes(base, p.field)
@@ -374,8 +551,86 @@ func (o *Buffer) enc_slice_byte(p *Properties, base structPointer) error {
 	return nil
 }
 
+func size_slice_byte(p *Properties, base structPointer) (n int) {
+	s := *structPointer_Bytes(base, p.field)
+	if s == nil {
+		return 0
+	}
+	n += len(p.tagcode)
+	n += sizeRawBytes(s)
+	return
+}
+
 // Encode a slice of int32s ([]int32).
 func (o *Buffer) enc_slice_int32(p *Properties, base structPointer) error {
+	s := structPointer_Word32Slice(base, p.field)
+	l := s.Len()
+	if l == 0 {
+		return ErrNil
+	}
+	for i := 0; i < l; i++ {
+		o.buf = append(o.buf, p.tagcode...)
+		x := int32(s.Index(i)) // permit sign extension to use full 64-bit range
+		p.valEnc(o, uint64(x))
+	}
+	return nil
+}
+
+func size_slice_int32(p *Properties, base structPointer) (n int) {
+	s := structPointer_Word32Slice(base, p.field)
+	l := s.Len()
+	if l == 0 {
+		return 0
+	}
+	for i := 0; i < l; i++ {
+		n += len(p.tagcode)
+		x := int32(s.Index(i)) // permit sign extension to use full 64-bit range
+		n += p.valSize(uint64(x))
+	}
+	return
+}
+
+// Encode a slice of int32s ([]int32) in packed format.
+func (o *Buffer) enc_slice_packed_int32(p *Properties, base structPointer) error {
+	s := structPointer_Word32Slice(base, p.field)
+	l := s.Len()
+	if l == 0 {
+		return ErrNil
+	}
+	// TODO: Reuse a Buffer.
+	buf := NewBuffer(nil)
+	for i := 0; i < l; i++ {
+		x := int32(s.Index(i)) // permit sign extension to use full 64-bit range
+		p.valEnc(buf, uint64(x))
+	}
+
+	o.buf = append(o.buf, p.tagcode...)
+	o.EncodeVarint(uint64(len(buf.buf)))
+	o.buf = append(o.buf, buf.buf...)
+	return nil
+}
+
+func size_slice_packed_int32(p *Properties, base structPointer) (n int) {
+	s := structPointer_Word32Slice(base, p.field)
+	l := s.Len()
+	if l == 0 {
+		return 0
+	}
+	var bufSize int
+	for i := 0; i < l; i++ {
+		x := int32(s.Index(i)) // permit sign extension to use full 64-bit range
+		bufSize += p.valSize(uint64(x))
+	}
+
+	n += len(p.tagcode)
+	n += sizeVarint(uint64(bufSize))
+	n += bufSize
+	return
+}
+
+// Encode a slice of uint32s ([]uint32).
+// Exactly the same as int32, except for no sign extension.
+func (o *Buffer) enc_slice_uint32(p *Properties, base structPointer) error {
 	s := structPointer_Word32Slice(base, p.field)
 	l := s.Len()
 	if l == 0 {
@@ -389,8 +644,23 @@ func (o *Buffer) enc_slice_int32(p *Properties, base structPointer) error {
 	return nil
 }
 
-// Encode a slice of int32s ([]int32) in packed format.
-func (o *Buffer) enc_slice_packed_int32(p *Properties, base structPointer) error {
+func size_slice_uint32(p *Properties, base structPointer) (n int) {
+	s := structPointer_Word32Slice(base, p.field)
+	l := s.Len()
+	if l == 0 {
+		return 0
+	}
+	for i := 0; i < l; i++ {
+		n += len(p.tagcode)
+		x := s.Index(i)
+		n += p.valSize(uint64(x))
+	}
+	return
+}
+
+// Encode a slice of uint32s ([]uint32) in packed format.
+// Exactly the same as int32, except for no sign extension.
+func (o *Buffer) enc_slice_packed_uint32(p *Properties, base structPointer) error {
 	s := structPointer_Word32Slice(base, p.field)
 	l := s.Len()
 	if l == 0 {
@@ -408,6 +678,23 @@ func (o *Buffer) enc_slice_packed_int32(p *Properties, base structPointer) error
 	return nil
 }
 
+func size_slice_packed_uint32(p *Properties, base structPointer) (n int) {
+	s := structPointer_Word32Slice(base, p.field)
+	l := s.Len()
+	if l == 0 {
+		return 0
+	}
+	var bufSize int
+	for i := 0; i < l; i++ {
+		bufSize += p.valSize(uint64(s.Index(i)))
+	}
+
+	n += len(p.tagcode)
+	n += sizeVarint(uint64(bufSize))
+	n += bufSize
+	return
+}
+
 // Encode a slice of int64s ([]int64).
 func (o *Buffer) enc_slice_int64(p *Properties, base structPointer) error {
 	s := structPointer_Word64Slice(base, p.field)
@@ -420,6 +707,19 @@ func (o *Buffer) enc_slice_int64(p *Properties, base structPointer) error {
 		p.valEnc(o, s.Index(i))
 	}
 	return nil
+}
+
+func size_slice_int64(p *Properties, base structPointer) (n int) {
+	s := structPointer_Word64Slice(base, p.field)
+	l := s.Len()
+	if l == 0 {
+		return 0
+	}
+	for i := 0; i < l; i++ {
+		n += len(p.tagcode)
+		n += p.valSize(s.Index(i))
+	}
+	return
 }
 
 // Encode a slice of int64s ([]int64) in packed format.
@@ -441,6 +741,23 @@ func (o *Buffer) enc_slice_packed_int64(p *Properties, base structPointer) error
 	return nil
 }
 
+func size_slice_packed_int64(p *Properties, base structPointer) (n int) {
+	s := structPointer_Word64Slice(base, p.field)
+	l := s.Len()
+	if l == 0 {
+		return 0
+	}
+	var bufSize int
+	for i := 0; i < l; i++ {
+		bufSize += p.valSize(s.Index(i))
+	}
+
+	n += len(p.tagcode)
+	n += sizeVarint(uint64(bufSize))
+	n += bufSize
+	return
+}
+
 // Encode a slice of slice of bytes ([][]byte).
 func (o *Buffer) enc_slice_slice_byte(p *Properties, base structPointer) error {
 	ss := *structPointer_BytesSlice(base, p.field)
@@ -450,10 +767,22 @@ func (o *Buffer) enc_slice_slice_byte(p *Properties, base structPointer) error {
 	}
 	for i := 0; i < l; i++ {
 		o.buf = append(o.buf, p.tagcode...)
-		s := ss[i]
-		o.EncodeRawBytes(s)
+		o.EncodeRawBytes(ss[i])
 	}
 	return nil
+}
+
+func size_slice_slice_byte(p *Properties, base structPointer) (n int) {
+	ss := *structPointer_BytesSlice(base, p.field)
+	l := len(ss)
+	if l == 0 {
+		return 0
+	}
+	n += l * len(p.tagcode)
+	for i := 0; i < l; i++ {
+		n += sizeRawBytes(ss[i])
+	}
+	return
 }
 
 // Encode a slice of strings ([]string).
@@ -462,14 +791,24 @@ func (o *Buffer) enc_slice_string(p *Properties, base structPointer) error {
 	l := len(ss)
 	for i := 0; i < l; i++ {
 		o.buf = append(o.buf, p.tagcode...)
-		s := ss[i]
-		o.EncodeStringBytes(s)
+		o.EncodeStringBytes(ss[i])
 	}
 	return nil
 }
 
+func size_slice_string(p *Properties, base structPointer) (n int) {
+	ss := *structPointer_StringSlice(base, p.field)
+	l := len(ss)
+	n += l * len(p.tagcode)
+	for i := 0; i < l; i++ {
+		n += sizeStringBytes(ss[i])
+	}
+	return
+}
+
 // Encode a slice of message structs ([]*struct).
 func (o *Buffer) enc_slice_struct_message(p *Properties, base structPointer) error {
+	var state errorState
 	s := structPointer_StructPointerSlice(base, p.field)
 	l := s.Len()
 
@@ -483,7 +822,7 @@ func (o *Buffer) enc_slice_struct_message(p *Properties, base structPointer) err
 		if p.isMarshaler {
 			m := structPointer_Interface(structp, p.stype).(Marshaler)
 			data, err := m.Marshal()
-			if err != nil {
+			if err != nil && !state.shouldContinue(err, nil) {
 				return err
 			}
 			o.buf = append(o.buf, p.tagcode...)
@@ -491,30 +830,47 @@ func (o *Buffer) enc_slice_struct_message(p *Properties, base structPointer) err
 			continue
 		}
 
-		obuf := o.buf
-		o.buf = o.bufalloc()
-
-		err := o.enc_struct(p.stype, p.sprop, structp)
-
-		nbuf := o.buf
-		o.buf = obuf
-		if err != nil {
-			o.buffree(nbuf)
+		o.buf = append(o.buf, p.tagcode...)
+		err := o.enc_len_struct(p.sprop, structp, &state)
+		if err != nil && !state.shouldContinue(err, nil) {
 			if err == ErrNil {
 				return ErrRepeatedHasNil
 			}
 			return err
 		}
-		o.buf = append(o.buf, p.tagcode...)
-		o.EncodeRawBytes(nbuf)
-
-		o.buffree(nbuf)
 	}
-	return nil
+	return state.err
+}
+
+func size_slice_struct_message(p *Properties, base structPointer) (n int) {
+	s := structPointer_StructPointerSlice(base, p.field)
+	l := s.Len()
+	n += l * len(p.tagcode)
+	for i := 0; i < l; i++ {
+		structp := s.Index(i)
+		if structPointer_IsNil(structp) {
+			return // return the size up to this point
+		}
+
+		// Can the object marshal itself?
+		if p.isMarshaler {
+			m := structPointer_Interface(structp, p.stype).(Marshaler)
+			data, _ := m.Marshal()
+			n += len(p.tagcode)
+			n += sizeRawBytes(data)
+			continue
+		}
+
+		n0 := size_struct(p.sprop, structp)
+		n1 := sizeVarint(uint64(n0)) // size of encoded length
+		n += n0 + n1
+	}
+	return
 }
 
 // Encode a slice of group structs ([]*struct).
 func (o *Buffer) enc_slice_struct_group(p *Properties, base structPointer) error {
+	var state errorState
 	s := structPointer_StructPointerSlice(base, p.field)
 	l := s.Len()
 
@@ -526,9 +882,9 @@ func (o *Buffer) enc_slice_struct_group(p *Properties, base structPointer) error
 
 		o.EncodeVarint(uint64((p.Tag << 3) | WireStartGroup))
 
-		err := o.enc_struct(p.stype, p.sprop, b)
+		err := o.enc_struct(p.sprop, b)
 
-		if err != nil {
+		if err != nil && !state.shouldContinue(err, nil) {
 			if err == ErrNil {
 				return ErrRepeatedHasNil
 			}
@@ -537,7 +893,24 @@ func (o *Buffer) enc_slice_struct_group(p *Properties, base structPointer) error
 
 		o.EncodeVarint(uint64((p.Tag << 3) | WireEndGroup))
 	}
-	return nil
+	return state.err
+}
+
+func size_slice_struct_group(p *Properties, base structPointer) (n int) {
+	s := structPointer_StructPointerSlice(base, p.field)
+	l := s.Len()
+
+	n += l * sizeVarint(uint64((p.Tag<<3)|WireStartGroup))
+	n += l * sizeVarint(uint64((p.Tag<<3)|WireEndGroup))
+	for i := 0; i < l; i++ {
+		b := s.Index(i)
+		if structPointer_IsNil(b) {
+			return // return size up to this point
+		}
+
+		n += size_struct(p.sprop, b)
+	}
+	return
 }
 
 // Encode an extension map.
@@ -567,9 +940,14 @@ func (o *Buffer) enc_map(p *Properties, base structPointer) error {
 	return nil
 }
 
+func size_map(p *Properties, base structPointer) int {
+	v := *structPointer_ExtMap(base, p.field)
+	return sizeExtensionMap(v)
+}
+
 // Encode a struct.
-func (o *Buffer) enc_struct(t reflect.Type, prop *StructProperties, base structPointer) error {
-	required := prop.reqCount
+func (o *Buffer) enc_struct(prop *StructProperties, base structPointer) error {
+	var state errorState
 	// Encode fields in tag order so that decoders may use optimizations
 	// that depend on the ordering.
 	// http://code.google.com/apis/protocolbuffers/docs/encoding.html#order
@@ -578,17 +956,15 @@ func (o *Buffer) enc_struct(t reflect.Type, prop *StructProperties, base structP
 		if p.enc != nil {
 			err := p.enc(o, p, base)
 			if err != nil {
-				if err != ErrNil {
+				if err == ErrNil {
+					if p.Required && state.err == nil {
+						state.err = &RequiredNotSetError{p.Name}
+					}
+				} else if !state.shouldContinue(err, p) {
 					return err
 				}
-			} else if p.Required {
-				required--
 			}
 		}
-	}
-	// See if we encoded all required fields.
-	if required > 0 {
-		return &ErrRequiredNotSet{t}
 	}
 
 	// Add unrecognized fields at the end.
@@ -599,5 +975,80 @@ func (o *Buffer) enc_struct(t reflect.Type, prop *StructProperties, base structP
 		}
 	}
 
-	return nil
+	return state.err
+}
+
+func size_struct(prop *StructProperties, base structPointer) (n int) {
+	for _, i := range prop.order {
+		p := prop.Prop[i]
+		if p.size != nil {
+			n += p.size(p, base)
+		}
+	}
+
+	// Add unrecognized fields at the end.
+	if prop.unrecField.IsValid() {
+		v := *structPointer_Bytes(base, prop.unrecField)
+		n += len(v)
+	}
+
+	return
+}
+
+var zeroes [20]byte // longer than any conceivable sizeVarint
+
+// Encode a struct, preceded by its encoded length (as a varint).
+func (o *Buffer) enc_len_struct(prop *StructProperties, base structPointer, state *errorState) error {
+	iLen := len(o.buf)
+	o.buf = append(o.buf, 0, 0, 0, 0) // reserve four bytes for length
+	iMsg := len(o.buf)
+	err := o.enc_struct(prop, base)
+	if err != nil && !state.shouldContinue(err, nil) {
+		return err
+	}
+	lMsg := len(o.buf) - iMsg
+	lLen := sizeVarint(uint64(lMsg))
+	switch x := lLen - (iMsg - iLen); {
+	case x > 0: // actual length is x bytes larger than the space we reserved
+		// Move msg x bytes right.
+		o.buf = append(o.buf, zeroes[:x]...)
+		copy(o.buf[iMsg+x:], o.buf[iMsg:iMsg+lMsg])
+	case x < 0: // actual length is x bytes smaller than the space we reserved
+		// Move msg x bytes left.
+		copy(o.buf[iMsg+x:], o.buf[iMsg:iMsg+lMsg])
+		o.buf = o.buf[:len(o.buf)+x] // x is negative
+	}
+	// Encode the length in the reserved space.
+	o.buf = o.buf[:iLen]
+	o.EncodeVarint(uint64(lMsg))
+	o.buf = o.buf[:len(o.buf)+lMsg]
+	return state.err
+}
+
+// errorState maintains the first error that occurs and updates that error
+// with additional context.
+type errorState struct {
+	err error
+}
+
+// shouldContinue reports whether encoding should continue upon encountering the
+// given error. If the error is RequiredNotSetError, shouldContinue returns true
+// and, if this is the first appearance of that error, remembers it for future
+// reporting.
+//
+// If prop is not nil, it may update any error with additional context about the
+// field with the error.
+func (s *errorState) shouldContinue(err error, prop *Properties) bool {
+	// Ignore unset required fields.
+	reqNotSet, ok := err.(*RequiredNotSetError)
+	if !ok {
+		return false
+	}
+	if s.err == nil {
+		if prop != nil {
+			err = &RequiredNotSetError{prop.Name + "." + reqNotSet.field}
+		}
+		s.err = err
+	}
+	return true
 }

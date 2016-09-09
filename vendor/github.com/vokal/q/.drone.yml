@@ -1,0 +1,15 @@
+image: docker.vokal.io/go1.4
+script:
+    - sudo apt-get update -qq
+    - sudo apt-get -y install bzr mercurial python-pip
+    - sudo apt-get -y install automake build-essential git gobject-introspection libglib2.0-dev libjpeg-turbo8-dev libpng12-dev gtk-doc-tools
+    - go get
+    - go get -t
+    - go build
+    - go test -coverprofile=coverage.txt -covermode=count
+notify:
+    webhook:
+        urls:
+            - https://dronebot.vokal.io/hook
+        on_success: true
+        on_failure: true

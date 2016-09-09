@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"math"
 
-	"github.com/daddye/vips"
 	"github.com/disintegration/imaging"
 	"github.com/rwcarlsen/goexif/exif"
 )
@@ -74,38 +73,48 @@ func Resize(src io.Reader, c *CacheContext) (io.Reader, error) {
 		return nil, err
 	}
 
-	options := vips.Options{
-		Width:        c.Width,
-		Crop:         true,
-		Extend:       vips.EXTEND_WHITE,
-		Interpolator: vips.BILINEAR,
-		Gravity:      vips.CENTRE,
-		Quality:      80,
+	width := c.Width
+	data := bytes.NewReader(raw)
+	img, format, err := image.Decode(data)
+	if err != nil {
+		return nil, err
 	}
-
+	var resizedImage image.NRGBA
 	if c.Crop {
-		data := bytes.NewReader(raw)
 
-		image, _, err := image.Decode(data)
-		if err != nil {
-			return nil, err
+		minDimension := int(math.Min(float64(img.Bounds().Size().X), float64(img.Bounds().Size().Y)))
+
+		if minDimension < c.Width || c.Width == 0 {
+			width = minDimension
 		}
 
-		minDimension := int(math.Min(float64(image.Bounds().Size().X), float64(image.Bounds().Size().Y)))
-
-		if minDimension < options.Width || options.Width == 0 {
-			options.Width = minDimension
-		}
-
-		options.Height = options.Width
+		resizedImage = *imaging.Fill(img, width, width, imaging.Center, imaging.Lanczos)
+	} else {
+		resizedImage = *imaging.Resize(img, width, 0, imaging.Lanczos)
 	}
 
-	res, err := vips.Resize(raw, options)
+	buf := new(bytes.Buffer)
+	var imgFormat imaging.Format
+	switch format {
+	case "png":
+		imgFormat = imaging.PNG
+	case "jpeg":
+		imgFormat = imaging.JPEG
+	case "tiff":
+		imgFormat = imaging.TIFF
+	case "bmp":
+		imgFormat = imaging.BMP
+	default:
+		return nil, errors.New("unsupported image format")
+	}
+
+	err = imaging.Encode(buf, resizedImage.SubImage(resizedImage.Rect), imgFormat)
 	if err != nil {
 		return nil, err
 	}
 
-	return bytes.NewBuffer(res), err
+	return buf, err
+
 }
 
 func ResizeGif(src io.Reader, c *CacheContext) (io.Reader, error) {

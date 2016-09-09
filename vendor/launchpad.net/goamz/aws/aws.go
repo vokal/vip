@@ -5,8 +5,7 @@
 //
 // Copyright (c) 2011 Canonical Ltd.
 //
-// Written by Gustavo Niemeyer <gustavo.niemeyer@canonical.com>
-//
+
 package aws
 
 import (
@@ -28,6 +27,7 @@ type Region struct {
 	SNSEndpoint          string
 	SQSEndpoint          string
 	IAMEndpoint          string
+	Sign                 Signer // Method which will be used to sign requests.
 }
 
 var USEast = Region{
@@ -41,6 +41,7 @@ var USEast = Region{
 	"https://sns.us-east-1.amazonaws.com",
 	"https://sqs.us-east-1.amazonaws.com",
 	"https://iam.amazonaws.com",
+	SignV2,
 }
 
 var USWest = Region{
@@ -54,6 +55,7 @@ var USWest = Region{
 	"https://sns.us-west-1.amazonaws.com",
 	"https://sqs.us-west-1.amazonaws.com",
 	"https://iam.amazonaws.com",
+	SignV2,
 }
 
 var USWest2 = Region{
@@ -67,6 +69,7 @@ var USWest2 = Region{
 	"https://sns.us-west-2.amazonaws.com",
 	"https://sqs.us-west-2.amazonaws.com",
 	"https://iam.amazonaws.com",
+	SignV2,
 }
 
 var EUWest = Region{
@@ -80,6 +83,7 @@ var EUWest = Region{
 	"https://sns.eu-west-1.amazonaws.com",
 	"https://sqs.eu-west-1.amazonaws.com",
 	"https://iam.amazonaws.com",
+	SignV2,
 }
 
 var APSoutheast = Region{
@@ -93,6 +97,7 @@ var APSoutheast = Region{
 	"https://sns.ap-southeast-1.amazonaws.com",
 	"https://sqs.ap-southeast-1.amazonaws.com",
 	"https://iam.amazonaws.com",
+	SignV2,
 }
 
 var APSoutheast2 = Region{
@@ -106,6 +111,7 @@ var APSoutheast2 = Region{
 	"https://sns.ap-southeast-2.amazonaws.com",
 	"https://sqs.ap-southeast-2.amazonaws.com",
 	"https://iam.amazonaws.com",
+	SignV2,
 }
 
 var APNortheast = Region{
@@ -119,6 +125,7 @@ var APNortheast = Region{
 	"https://sns.ap-northeast-1.amazonaws.com",
 	"https://sqs.ap-northeast-1.amazonaws.com",
 	"https://iam.amazonaws.com",
+	SignV2,
 }
 
 var SAEast = Region{
@@ -132,6 +139,21 @@ var SAEast = Region{
 	"https://sns.sa-east-1.amazonaws.com",
 	"https://sqs.sa-east-1.amazonaws.com",
 	"https://iam.amazonaws.com",
+	SignV2,
+}
+
+var CNNorth = Region{
+	"cn-north-1",
+	"https://ec2.cn-north-1.amazonaws.com.cn",
+	"https://s3.cn-north-1.amazonaws.com.cn",
+	"",
+	true,
+	true,
+	"https://sdb.cn-north-1.amazonaws.com.cn",
+	"https://sns.cn-north-1.amazonaws.com.cn",
+	"https://sqs.cn-north-1.amazonaws.com.cn",
+	"https://iam.amazonaws.com.cn",
+	SignV4Factory("cn-north-1"),
 }
 
 var Regions = map[string]Region{
@@ -143,6 +165,7 @@ var Regions = map[string]Region{
 	USWest.Name:       USWest,
 	USWest2.Name:      USWest2,
 	SAEast.Name:       SAEast,
+	CNNorth.Name:      CNNorth,
 }
 
 type Auth struct {

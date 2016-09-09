@@ -223,6 +223,7 @@ type Stats struct {
 	Decode  uint64 // number of decodes
 	Chit    uint64 // number of cache hits
 	Cmiss   uint64 // number of cache misses
+	Size    uint64 // number of sizes
 }
 
 // Set to true to enable stats collection.
@@ -239,10 +240,8 @@ func GetStats() Stats { return stats }
 // the global functions Marshal and Unmarshal create a
 // temporary Buffer and are fine for most applications.
 type Buffer struct {
-	buf       []byte     // encode/decode byte stream
-	index     int        // write point
-	freelist  [10][]byte // list of available buffers
-	nfreelist int        // number of free buffers
+	buf   []byte // encode/decode byte stream
+	index int    // write point
 
 	// pools of basic types to amortize allocation.
 	bools   []bool
@@ -259,20 +258,11 @@ type Buffer struct {
 // NewBuffer allocates a new Buffer and initializes its internal data to
 // the contents of the argument slice.
 func NewBuffer(e []byte) *Buffer {
-	p := new(Buffer)
-	if e == nil {
-		e = p.bufalloc()
-	}
-	p.buf = e
-	p.index = 0
-	return p
+	return &Buffer{buf: e}
 }
 
 // Reset resets the Buffer, ready for marshaling a new protocol buffer.
 func (p *Buffer) Reset() {
-	if p.buf == nil {
-		p.buf = p.bufalloc()
-	}
 	p.buf = p.buf[0:0] // for reading/writing
 	p.index = 0        // for reading
 }
@@ -286,44 +276,6 @@ func (p *Buffer) SetBuf(s []byte) {
 
 // Bytes returns the contents of the Buffer.
 func (p *Buffer) Bytes() []byte { return p.buf }
-
-// Allocate a buffer for the Buffer.
-func (p *Buffer) bufalloc() []byte {
-	if p.nfreelist > 0 {
-		// reuse an old one
-		p.nfreelist--
-		s := p.freelist[p.nfreelist]
-		return s[0:0]
-	}
-	// make a new one
-	s := make([]byte, 0, 16)
-	return s
-}
-
-// Free (and remember in freelist) a byte buffer for the Buffer.
-func (p *Buffer) buffree(s []byte) {
-	if p.nfreelist < len(p.freelist) {
-		// Take next slot.
-		p.freelist[p.nfreelist] = s
-		p.nfreelist++
-		return
-	}
-
-	// Find the smallest.
-	besti := -1
-	bestl := len(s)
-	for i, b := range p.freelist {
-		if len(b) < bestl {
-			besti = i
-			bestl = len(b)
-		}
-	}
-
-	// Overwrite the smallest.
-	if besti >= 0 {
-		p.freelist[besti] = s
-	}
-}
 
 /*
  * Helper routines for simplifying the creation of optional fields of basic type.
@@ -403,9 +355,7 @@ func EnumName(m map[int32]string, v int32) string {
 // names to its int values, and a byte buffer containing the JSON-encoded
 // value, it returns an int32 that can be cast to the enum type by the caller.
 //
-// The function can deal with older JSON representations, which represented
-// enums directly by their int32 values, or with newer representations, which
-// use the symbolic name as a string.
+// The function can deal with both JSON representations, numeric and symbolic.
 func UnmarshalJSONEnum(m map[string]int32, data []byte, enumName string) (int32, error) {
 	if data[0] == '"' {
 		// New style: enums are strings.
@@ -717,7 +667,7 @@ func buildDefaultMessage(t reflect.Type) (dm defaultMessage) {
 		}
 
 		// scalar fields without defaults
-		if prop.Default == "" {
+		if !prop.HasDefault {
 			dm.scalars = append(dm.scalars, sf)
 			continue
 		}
