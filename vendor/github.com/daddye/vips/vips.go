@@ -60,22 +60,46 @@ type Options struct {
 	Crop         bool
 	Enlarge      bool
 	Extend       Extend
+	Embed        bool
 	Interpolator Interpolator
 	Gravity      Gravity
 	Quality      int
 }
 
 func init() {
+	Initialize()
+}
+
+var initialized bool
+
+func Initialize() {
+	if initialized {
+		return
+	}
+
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	err := C.vips_initialize()
-	if err != 0 {
+
+	if err := C.vips_initialize(); err != 0 {
 		C.vips_shutdown()
 		panic("unable to start vips!")
 	}
+
 	C.vips_concurrency_set(1)
 	C.vips_cache_set_max_mem(100 * 1048576) // 100Mb
 	C.vips_cache_set_max(500)
+
+	initialized = true
+}
+
+func Shutdown() {
+	if !initialized {
+		return
+	}
+
+	C.vips_shutdown()
+
+	initialized = false
 }
 
 func Debug() {
@@ -83,6 +107,7 @@ func Debug() {
 }
 
 func Resize(buf []byte, o Options) ([]byte, error) {
+	debug("%#+v", o)
 
 	// detect (if possible) the file type
 	typ := UNKNOWN
@@ -96,16 +121,21 @@ func Resize(buf []byte, o Options) ([]byte, error) {
 	}
 
 	// create an image instance
-	in := C.vips_image_new()
-	defer C.vips_thread_shutdown()
+	var image, tmpImage *C.struct__VipsImage
 
 	// feed it
 	switch typ {
 	case JPEG:
-		C.vips_jpegload_buffer_seq(unsafe.Pointer(&buf[0]), C.size_t(len(buf)), &in)
+		C.vips_jpegload_buffer_seq(unsafe.Pointer(&buf[0]), C.size_t(len(buf)), &image)
 	case PNG:
-		C.vips_pngload_buffer_seq(unsafe.Pointer(&buf[0]), C.size_t(len(buf)), &in)
+		C.vips_pngload_buffer_seq(unsafe.Pointer(&buf[0]), C.size_t(len(buf)), &image)
 	}
+
+	// cleanup
+	defer func() {
+		C.vips_thread_shutdown()
+		C.vips_error_clear()
+	}()
 
 	// defaults
 	if o.Quality == 0 {
@@ -113,8 +143,8 @@ func Resize(buf []byte, o Options) ([]byte, error) {
 	}
 
 	// get WxH
-	inWidth := int(in.Xsize)
-	inHeight := int(in.Ysize)
+	inWidth := int(image.Xsize)
+	inHeight := int(image.Ysize)
 
 	// prepare for factor
 	factor := 0.0
@@ -136,7 +166,7 @@ func Resize(buf []byte, o Options) ([]byte, error) {
 		o.Height = int(math.Floor(float64(inHeight) / factor))
 	// Fixed height, auto width
 	case o.Height > 0:
-		factor = float64(inWidth) / float64(o.Height)
+		factor = float64(inHeight) / float64(o.Height)
 		o.Width = int(math.Floor(float64(inWidth) / factor))
 	// Identity transform
 	default:
@@ -158,7 +188,7 @@ func Resize(buf []byte, o Options) ([]byte, error) {
 
 	// Do not enlarge the output if the input width *or* height are already less than the required dimensions
 	if !o.Enlarge {
-		if inWidth < o.Width || inHeight < o.Height {
+		if inWidth < o.Width && inHeight < o.Height {
 			factor = 1
 			shrink = 1
 			residual = 0
@@ -167,9 +197,11 @@ func Resize(buf []byte, o Options) ([]byte, error) {
 		}
 	}
 
-	// We don't use libjpeg shrink-on-load since we are not applying gamma correction
+	debug("factor: %v, shrink: %v, residual: %v", factor, shrink, residual)
+
+	// Try to use libjpeg shrink-on-load
 	shrinkOnLoad := 1
-	if typ == JPEG {
+	if typ == JPEG && shrink >= 2 {
 		switch {
 		case shrink >= 8:
 			factor = factor / 8
@@ -183,7 +215,6 @@ func Resize(buf []byte, o Options) ([]byte, error) {
 		}
 	}
 
-	shrunkOnLoad := C.vips_image_new()
 	if shrinkOnLoad > 1 {
 		debug("shrink on load %d", shrinkOnLoad)
 		// Recalculate integral shrink and double residual
@@ -191,27 +222,27 @@ func Resize(buf []byte, o Options) ([]byte, error) {
 		shrink = int(math.Floor(factor))
 		residual = float64(shrink) / factor
 		// Reload input using shrink-on-load
-		err := C.vips_jpegload_buffer_shrink(unsafe.Pointer(&buf[0]), C.size_t(len(buf)), &shrunkOnLoad, C.int(shrinkOnLoad))
+		err := C.vips_jpegload_buffer_shrink(unsafe.Pointer(&buf[0]), C.size_t(len(buf)), &tmpImage, C.int(shrinkOnLoad))
+		C.g_object_unref(C.gpointer(image))
+		image = tmpImage
 		if err != 0 {
 			return nil, resizeError()
 		}
-	} else {
-		C.vips_copy_0(in, &shrunkOnLoad)
 	}
-	C.g_object_unref(C.gpointer(in))
 
-	shrunk := C.vips_image_new()
 	if shrink > 1 {
 		debug("shrink %d", shrink)
 		// Use vips_shrink with the integral reduction
-		err := C.vips_shrink_0(shrunkOnLoad, &shrunk, C.double(float64(shrink)), C.double(float64(shrink)))
+		err := C.vips_shrink_0(image, &tmpImage, C.double(float64(shrink)), C.double(float64(shrink)))
+		C.g_object_unref(C.gpointer(image))
+		image = tmpImage
 		if err != 0 {
 			return nil, resizeError()
 		}
 
 		// Recalculate residual float based on dimensions of required vs shrunk images
-		shrunkWidth := int(shrunk.Xsize)
-		shrunkHeight := int(shrunk.Ysize)
+		shrunkWidth := int(image.Xsize)
+		shrunkHeight := int(image.Ysize)
 
 		residualx := float64(o.Width) / float64(shrunkWidth)
 		residualy := float64(o.Height) / float64(shrunkHeight)
@@ -220,13 +251,10 @@ func Resize(buf []byte, o Options) ([]byte, error) {
 		} else {
 			residual = math.Min(residualx, residualy)
 		}
-	} else {
-		C.vips_copy_0(shrunkOnLoad, &shrunk)
 	}
-	C.g_object_unref(C.gpointer(shrunkOnLoad))
 
 	// Use vips_affine with the remaining float part
-	affined := C.vips_image_new()
+	debug("residual: %v", residual)
 	if residual != 0 {
 		debug("residual %.2f", residual)
 		// Create interpolator - "bilinear" (default), "bicubic" or "nohalo"
@@ -234,22 +262,23 @@ func Resize(buf []byte, o Options) ([]byte, error) {
 		interpolator := C.vips_interpolate_new(is)
 
 		// Perform affine transformation
-		err := C.vips_affine_interpolator(shrunk, &affined, C.double(residual), 0, 0, C.double(residual), interpolator)
-		C.g_object_unref(C.gpointer(interpolator))
+		err := C.vips_affine_interpolator(image, &tmpImage, C.double(residual), 0, 0, C.double(residual), interpolator)
+		C.g_object_unref(C.gpointer(image))
+
+		image = tmpImage
+
 		C.free(unsafe.Pointer(is))
+		C.g_object_unref(C.gpointer(interpolator))
+
 		if err != 0 {
 			return nil, resizeError()
 		}
-	} else {
-		C.vips_copy_0(shrunk, &affined)
 	}
-	C.g_object_unref(C.gpointer(shrunk))
 
 	// Crop/embed
-	affinedWidth := int(affined.Xsize)
-	affinedHeight := int(affined.Ysize)
+	affinedWidth := int(image.Xsize)
+	affinedHeight := int(image.Ysize)
 
-	canvased := C.vips_image_new()
 	if affinedWidth != o.Width || affinedHeight != o.Height {
 		if o.Crop {
 			// Crop
@@ -257,45 +286,41 @@ func Resize(buf []byte, o Options) ([]byte, error) {
 			left, top := sharpCalcCrop(affinedWidth, affinedHeight, o.Width, o.Height, o.Gravity)
 			o.Width = int(math.Min(float64(affinedWidth), float64(o.Width)))
 			o.Height = int(math.Min(float64(affinedHeight), float64(o.Height)))
-			err := C.vips_extract_area_0(affined, &canvased, C.int(left), C.int(top), C.int(o.Width), C.int(o.Height))
+			err := C.vips_extract_area_0(image, &tmpImage, C.int(left), C.int(top), C.int(o.Width), C.int(o.Height))
+			C.g_object_unref(C.gpointer(image))
+			image = tmpImage
 			if err != 0 {
 				return nil, resizeError()
 			}
-		} else {
-			// Embed
+		} else if o.Embed {
 			debug("embedding with extend %d", o.Extend)
 			left := (o.Width - affinedWidth) / 2
 			top := (o.Height - affinedHeight) / 2
-			err := C.vips_embed_extend(affined, &canvased, C.int(left), C.int(top), C.int(o.Width), C.int(o.Height), C.int(o.Extend))
+			err := C.vips_embed_extend(image, &tmpImage, C.int(left), C.int(top), C.int(o.Width), C.int(o.Height), C.int(o.Extend))
+			C.g_object_unref(C.gpointer(image))
+			image = tmpImage
 			if err != 0 {
 				return nil, resizeError()
 			}
 		}
 	} else {
 		debug("canvased same as affined")
-		C.vips_copy_0(affined, &canvased)
 	}
-	C.g_object_unref(C.gpointer(affined))
 
 	// Always convert to sRGB colour space
-	colourspaced := C.vips_image_new()
-
-	C.vips_colourspace_0(canvased, &colourspaced, C.VIPS_INTERPRETATION_sRGB)
-	C.g_object_unref(C.gpointer(canvased))
+	C.vips_colourspace_0(image, &tmpImage, C.VIPS_INTERPRETATION_sRGB)
+	C.g_object_unref(C.gpointer(image))
+	image = tmpImage
 
 	// Finally save
 	length := C.size_t(0)
-	ptr := C.malloc(C.size_t(len(buf)))
-
-	C.vips_jpegsave_custom(colourspaced, &ptr, &length, 1, C.int(o.Quality), 0)
-	C.g_object_unref(C.gpointer(colourspaced))
+	var ptr unsafe.Pointer
+	C.vips_jpegsave_custom(image, &ptr, &length, 1, C.int(o.Quality), 0)
+	C.g_object_unref(C.gpointer(image))
 
 	// get back the buffer
 	buf = C.GoBytes(ptr, C.int(length))
-
-	// cleanup
-	C.free(ptr)
-	C.vips_error_clear()
+	C.g_free(C.gpointer(ptr))
 
 	return buf, nil
 }
@@ -303,14 +328,13 @@ func Resize(buf []byte, o Options) ([]byte, error) {
 func resizeError() error {
 	s := C.GoString(C.vips_error_buffer())
 	C.vips_error_clear()
-	C.vips_thread_shutdown()
 	return errors.New(s)
 }
 
 type Gravity int
 
 const (
-	CENTRE Gravity = iota
+	CENTRE Gravity = 1 << iota
 	NORTH
 	EAST
 	SOUTH
@@ -318,22 +342,25 @@ const (
 )
 
 func sharpCalcCrop(inWidth, inHeight, outWidth, outHeight int, gravity Gravity) (int, int) {
-	left, top := 0, 0
-	switch gravity {
-	case NORTH:
-		left = (inWidth - outWidth + 1) / 2
-	case EAST:
-		left = inWidth - outWidth
-		top = (inHeight - outHeight + 1) / 2
-	case SOUTH:
-		left = (inWidth - outWidth + 1) / 2
-		top = inHeight - outHeight
-	case WEST:
-		top = (inHeight - outHeight + 1) / 2
-	default:
-		left = (inWidth - outWidth + 1) / 2
-		top = (inHeight - outHeight + 1) / 2
+	left := (inWidth - outWidth + 1) / 2
+	top := (inHeight - outHeight + 1) / 2
+
+	if (gravity & NORTH) != 0 {
+		top = 0
 	}
+
+	if (gravity & EAST) != 0 {
+		left = inWidth - outWidth
+	}
+
+	if (gravity & SOUTH) != 0 {
+		top = inHeight - outHeight
+	}
+
+	if (gravity & WEST) != 0 {
+		left = 0
+	}
+
 	return left, top
 }
 

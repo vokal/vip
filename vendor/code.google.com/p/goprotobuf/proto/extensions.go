@@ -109,11 +109,11 @@ func isExtensionField(pb extendableProto, field int32) bool {
 func checkExtensionTypes(pb extendableProto, extension *ExtensionDesc) error {
 	// Check the extended type.
 	if a, b := reflect.TypeOf(pb), reflect.TypeOf(extension.ExtendedType); a != b {
-		return errors.New("bad extended type; " + b.String() + " does not extend " + a.String())
+		return errors.New("proto: bad extended type; " + b.String() + " does not extend " + a.String())
 	}
 	// Check the range.
 	if !isExtensionField(pb, extension.Field) {
-		return errors.New("bad extension number; not in declared ranges")
+		return errors.New("proto: bad extension number; not in declared ranges")
 	}
 	return nil
 }
@@ -183,6 +183,30 @@ func encodeExtensionMap(m map[int32]Extension) error {
 	return nil
 }
 
+func sizeExtensionMap(m map[int32]Extension) (n int) {
+	for _, e := range m {
+		if e.value == nil || e.desc == nil {
+			// Extension is only in its encoded form.
+			n += len(e.enc)
+			continue
+		}
+
+		// We don't skip extensions that have an encoded form set,
+		// because the extension value may have been mutated after
+		// the last time this function was called.
+
+		et := reflect.TypeOf(e.desc.ExtensionType)
+		props := extensionProperties(e.desc)
+
+		// If e.value has type T, the encoder expects a *struct{ X T }.
+		// Pass a *T with a zero field and hope it all works out.
+		x := reflect.New(et)
+		x.Elem().Set(reflect.ValueOf(e.value))
+		n += props.size(props, toStructPointer(x))
+	}
+	return
+}
+
 // HasExtension returns whether the given extension is present in pb.
 func HasExtension(pb extendableProto, extension *ExtensionDesc) bool {
 	// TODO: Check types, field numbers, etc.?
@@ -198,14 +222,13 @@ func ClearExtension(pb extendableProto, extension *ExtensionDesc) {
 
 // GetExtension parses and returns the given extension of pb.
 // If the extension is not present it returns ErrMissingExtension.
-// If the returned extension is modified, SetExtension must be called
-// for the modifications to be reflected in pb.
 func GetExtension(pb extendableProto, extension *ExtensionDesc) (interface{}, error) {
 	if err := checkExtensionTypes(pb, extension); err != nil {
 		return nil, err
 	}
 
-	e, ok := pb.ExtensionMap()[extension.Field]
+	emap := pb.ExtensionMap()
+	e, ok := emap[extension.Field]
 	if !ok {
 		return nil, ErrMissingExtension
 	}
@@ -230,6 +253,7 @@ func GetExtension(pb extendableProto, extension *ExtensionDesc) (interface{}, er
 	e.value = v
 	e.desc = extension
 	e.enc = nil
+	emap[extension.Field] = e
 	return e.value, nil
 }
 
@@ -272,12 +296,15 @@ func decodeExtension(b []byte, extension *ExtensionDesc) (interface{}, error) {
 func GetExtensions(pb Message, es []*ExtensionDesc) (extensions []interface{}, err error) {
 	epb, ok := pb.(extendableProto)
 	if !ok {
-		err = errors.New("not an extendable proto")
+		err = errors.New("proto: not an extendable proto")
 		return
 	}
 	extensions = make([]interface{}, len(es))
 	for i, e := range es {
 		extensions[i], err = GetExtension(epb, e)
+		if err == ErrMissingExtension {
+			err = nil
+		}
 		if err != nil {
 			return
 		}
@@ -292,7 +319,7 @@ func SetExtension(pb extendableProto, extension *ExtensionDesc, value interface{
 	}
 	typ := reflect.TypeOf(extension.ExtensionType)
 	if typ != reflect.TypeOf(value) {
-		return errors.New("bad extension value type")
+		return errors.New("proto: bad extension value type")
 	}
 
 	pb.ExtensionMap()[extension.Field] = Extension{desc: extension, value: value}

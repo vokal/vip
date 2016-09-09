@@ -36,6 +36,7 @@ package proto
 import (
 	"bufio"
 	"bytes"
+	"encoding"
 	"fmt"
 	"io"
 	"log"
@@ -225,7 +226,16 @@ func writeStruct(w *textWriter, sv reflect.Value) error {
 						return err
 					}
 				}
-				if err := writeAny(w, fv.Index(j), props); err != nil {
+				v := fv.Index(j)
+				if v.Kind() == reflect.Ptr && v.IsNil() {
+					// A nil message in a repeated field is not valid,
+					// but we can handle that more gracefully than panicking.
+					if _, err := w.Write([]byte("<nil>\n")); err != nil {
+						return err
+					}
+					continue
+				}
+				if err := writeAny(w, v, props); err != nil {
 					return err
 				}
 				if err := w.WriteByte('\n'); err != nil {
@@ -342,7 +352,15 @@ func writeAny(w *textWriter, v reflect.Value, props *Properties) error {
 			}
 		}
 		w.indent()
-		if err := writeStruct(w, v); err != nil {
+		if tm, ok := v.Interface().(encoding.TextMarshaler); ok {
+			text, err := tm.MarshalText()
+			if err != nil {
+				return err
+			}
+			if _, err = w.Write(text); err != nil {
+				return err
+			}
+		} else if err := writeStruct(w, v); err != nil {
 			return err
 		}
 		w.unindent()
@@ -477,7 +495,7 @@ func writeUnknownStruct(w *textWriter, data []byte) (err error) {
 		switch wire {
 		case WireBytes:
 			buf, e := b.DecodeRawBytes(false)
-			if err == nil {
+			if e == nil {
 				_, err = fmt.Fprintf(w, "%q", buf)
 			} else {
 				_, err = fmt.Fprintf(w, "/* %v */", e)
@@ -629,6 +647,19 @@ func marshalText(w io.Writer, pb Message, compact bool) error {
 		compact:  compact,
 	}
 
+	if tm, ok := pb.(encoding.TextMarshaler); ok {
+		text, err := tm.MarshalText()
+		if err != nil {
+			return err
+		}
+		if _, err = aw.Write(text); err != nil {
+			return err
+		}
+		if bw != nil {
+			return bw.Flush()
+		}
+		return nil
+	}
 	// Dereference the received pointer so we don't have outer < and >.
 	v := reflect.Indirect(val)
 	if err := writeStruct(aw, v); err != nil {
@@ -642,7 +673,9 @@ func marshalText(w io.Writer, pb Message, compact bool) error {
 
 // MarshalText writes a given protocol buffer in text format.
 // The only errors returned are from w.
-func MarshalText(w io.Writer, pb Message) error { return marshalText(w, pb, false) }
+func MarshalText(w io.Writer, pb Message) error {
+	return marshalText(w, pb, false)
+}
 
 // MarshalTextString is the same as MarshalText, but returns the string directly.
 func MarshalTextString(pb Message) string {

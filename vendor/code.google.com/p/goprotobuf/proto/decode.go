@@ -43,11 +43,6 @@ import (
 	"reflect"
 )
 
-// ErrWrongType occurs when the wire encoding for the field disagrees with
-// that specified in the type being decoded.  This is usually caused by attempting
-// to convert an encoded protocol buffer into a struct of the wrong type.
-var ErrWrongType = errors.New("field/encoding mismatch: wrong type for field")
-
 // errOverflow is returned when an integer is too large to be represented.
 var errOverflow = errors.New("proto: integer overflow")
 
@@ -235,12 +230,6 @@ func (o *Buffer) skipAndSave(t reflect.Type, tag, wire int, base structPointer, 
 
 	ptr := structPointer_Bytes(base, unrecField)
 
-	if *ptr == nil {
-		// This is the first skipped element,
-		// allocate a new buffer.
-		*ptr = o.bufalloc()
-	}
-
 	// Add the skipped field to struct field
 	obuf := o.buf
 
@@ -353,6 +342,7 @@ func (p *Buffer) Unmarshal(pb Message) error {
 
 // unmarshalType does the work of unmarshaling a structure.
 func (o *Buffer) unmarshalType(st reflect.Type, prop *StructProperties, is_group bool, base structPointer) error {
+	var state errorState
 	required, reqFields := prop.reqCount, uint64(0)
 
 	var err error
@@ -368,11 +358,11 @@ func (o *Buffer) unmarshalType(st reflect.Type, prop *StructProperties, is_group
 			if is_group {
 				return nil // input is satisfied
 			}
-			return ErrWrongType
+			return fmt.Errorf("proto: %s: wiretype end group for non-group", st)
 		}
 		tag := int(u >> 3)
 		if tag <= 0 {
-			return fmt.Errorf("proto: illegal tag %d", tag)
+			return fmt.Errorf("proto: %s: illegal tag %d (wire type %d)", st, tag, wire)
 		}
 		fieldnum, ok := prop.decoderTags.get(tag)
 		if !ok {
@@ -402,11 +392,14 @@ func (o *Buffer) unmarshalType(st reflect.Type, prop *StructProperties, is_group
 				// a packable field
 				dec = p.packedDec
 			} else {
-				err = ErrWrongType
+				err = fmt.Errorf("proto: bad wiretype for field %s.%s: got wiretype %d, want %d", st, st.Field(fieldnum).Name, wire, p.WireType)
 				continue
 			}
 		}
-		err = dec(o, p, base)
+		decErr := dec(o, p, base)
+		if decErr != nil && !state.shouldContinue(decErr, p) {
+			err = decErr
+		}
 		if err == nil && p.Required {
 			// Successfully decoded a required field.
 			if tag <= 64 {
@@ -430,8 +423,14 @@ func (o *Buffer) unmarshalType(st reflect.Type, prop *StructProperties, is_group
 		if is_group {
 			return io.ErrUnexpectedEOF
 		}
+		if state.err != nil {
+			return state.err
+		}
 		if required > 0 {
-			return &ErrRequiredNotSet{st}
+			// Not enough information to determine the exact field. If we use extra
+			// CPU, we could determine the field only if the missing required field
+			// has a tag <= 64 and we check reqFields.
+			return &RequiredNotSetError{"{Unknown}"}
 		}
 	}
 	return err

@@ -23,12 +23,13 @@ use separate command line tools like [jpegoptim](https://github.com/tjko/jpegopt
 
 * [libvips](https://github.com/jcupitt/libvips) v7.38.5+
 
-_libvips_ can take advantage of [liborc](http://code.entropywave.com/orc/) if present. 
+_libvips_ can take advantage of [liborc](http://code.entropywave.com/orc/) if present.
 
 ### Install libvips on Mac OS
 
-    brew install homebrew/science/vips  --without-fftw --without-libexif --without-libgf \
-    	--without-little-cms --without-orc --without-pango
+    brew install homebrew/science/vips --without-fftw --without-libexif --without-libgsf \
+      --without-little-cms2 --without-orc --without-pango --without-pygobject3 \
+      --without-gobject-introspection --without-python
 
 ### Install libvips on Linux
 
