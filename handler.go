@@ -131,8 +131,11 @@ func handleImageRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gc := fetch.RequestContext(r)
-
+	fmt.Println(gc)
+	fmt.Println(gc.CacheKey())
 	var data []byte
+	snk := groupcache.AllocatingByteSliceSink(&data)
+	fmt.Println(snk)
 	err := cache.Get(gc, gc.CacheKey(), groupcache.AllocatingByteSliceSink(&data))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
