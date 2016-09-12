@@ -36,8 +36,34 @@ var (
 )
 
 var (
-	_ = Suite(&ResizeSuite{})
+	_             = Suite(&ResizeSuite{})
+	Range Checker = &intRangeChecker{
+		&CheckerInfo{Name: "Range", Params: []string{"obtained", "expected", "range"}},
+	}
 )
+
+/* NOTE: Some tests are done w/ a small range because fractional bits are being rounded
+differently on different machines. */
+
+type intRangeChecker struct {
+	*CheckerInfo
+}
+
+func (checker *intRangeChecker) Check(params []interface{}, names []string) (result bool, error string) {
+	obtained, ok := params[0].(int)
+	if !ok {
+		return false, "range can only be performed on integers"
+	}
+	expected, ok := params[1].(int)
+	if !ok {
+		return false, "range can only be performed on integers"
+	}
+	rng, ok := params[2].(int)
+	if !ok {
+		return false, "range can only be performed on integers"
+	}
+	return (obtained-rng < expected && expected < obtained+rng), ""
+}
 
 type ResizeSuite struct{}
 
@@ -122,8 +148,8 @@ func (s *ResizeSuite) TestResizeImage(c *C) {
 
 		image, _, err := image.Decode(resized)
 		c.Check(err, IsNil)
-		c.Check(image.Bounds().Size().X, Equals, width)
-		c.Check(image.Bounds().Size().Y, Equals, height)
+		c.Check(image.Bounds().Size().X, Range, width, 2)
+		c.Check(image.Bounds().Size().Y, Range, height, 2)
 	}
 }
 
@@ -148,8 +174,8 @@ func (s *ResizeSuite) TestResizeImageSquare(c *C) {
 			width = 768
 		}
 
-		c.Check(image.Bounds().Size().X, Equals, width)
-		c.Check(image.Bounds().Size().Y, Equals, width)
+		c.Check(image.Bounds().Size().X, Range, width, 2)
+		c.Check(image.Bounds().Size().Y, Range, width, 2)
 	}
 }
 
@@ -206,8 +232,8 @@ func (s *ResizeSuite) TestResizeNoExifImage(c *C) {
 
 		image, _, err := image.Decode(resized)
 		c.Check(err, IsNil)
-		c.Check(image.Bounds().Size().X, Equals, width)
-		c.Check(image.Bounds().Size().Y, Equals, height)
+		c.Check(image.Bounds().Size().X, Range, width, 2)
+		c.Check(image.Bounds().Size().Y, Range, height, 2)
 	}
 }
 
@@ -319,8 +345,8 @@ func (s *ResizeSuite) TestResizeColdCache(c *C) {
 		// Verify the size of the resulting byte slice
 		img, _, err := image.Decode(bytes.NewReader(data))
 		c.Assert(err, IsNil)
-		c.Assert(img.Bounds().Size().X, Equals, width)
-		c.Assert(img.Bounds().Size().Y, Equals, height)
+		c.Check(img.Bounds().Size().X, Range, width, 2)
+		c.Check(img.Bounds().Size().Y, Range, height, 2)
 	}
 }
 
