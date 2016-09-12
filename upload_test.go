@@ -18,10 +18,7 @@ var (
 	_ = Suite(&UploadSuite{})
 )
 
-type UploadSuite struct {
-	recorder *httptest.ResponseRecorder
-	router   *mux.Router
-}
+type UploadSuite struct{}
 
 func (s *UploadSuite) SetUpSuite(c *C) {
 	setUpSuite(c)
