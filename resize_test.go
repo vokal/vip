@@ -345,8 +345,8 @@ func (s *ResizeSuite) TestResizeColdCache(c *C) {
 		// Verify the size of the resulting byte slice
 		img, _, err := image.Decode(bytes.NewReader(data))
 		c.Assert(err, IsNil)
-		c.Check(image.Bounds().Size().X, Range, width, 2)
-		c.Check(image.Bounds().Size().Y, Range, height, 2)
+		c.Check(img.Bounds().Size().X, Range, width, 2)
+		c.Check(img.Bounds().Size().Y, Range, height, 2)
 	}
 }
 
